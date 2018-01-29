@@ -147,7 +147,7 @@ class EncDecTest(unittest.TestCase):
         out = decoder(batch2, code)
 
     def test_basic_encoder_decoder2(self):
-        '''The encoder_decoder should produce output of the right shae '''
+        '''The encoder_decoder should produce output of the right shape '''
         encdec = ed.EncoderDecoderRNN(5, 5, 6, 6, 7)
         input_padded = ag.Variable(
             torch.LongTensor([[1, 2, 3, 4], [1, 0, 0, 0]]))

@@ -8,7 +8,7 @@ import torch
 import torch.autograd as ag
 SOS_TOKEN = 1
 EOS_TOKEN = 2
-
+NUM_RESERVED_INDEXES =3 # null +SOS_TOKEN + EOS_TOKEN
 
 class Lang:
     '''
