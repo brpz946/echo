@@ -76,16 +76,16 @@ class DataProcTest(unittest.TestCase):
         testpairs = [[[1, 2, 3], [1]], [[62], [1, 2]], [[11, 12], [0, 2]]]
         ds1 = dp.SupervisedTranslationDataset(testpairs)
         batches = ds1.batch(2)
-        self.assertEqual(batches[0].src.seqs.tolist(), [[1, 2, 3], [62, 0, 0]])
-        self.assertEqual(batches[0].tgt.seqs.tolist(), [[1, 2], [1, 0]])
-        self.assertEqual(batches[1].src.seqs.tolist(), [[11, 12]])
+        self.assertEqual(batches[0].src.seqs.data.tolist(), [[1, 2, 3], [62, 0, 0]])
+        self.assertEqual(batches[0].tgt.seqs.data.tolist(), [[1, 2], [1, 0]])
+        self.assertEqual(batches[1].src.seqs.data.tolist(), [[11, 12]])
         self.assertEqual(batches[0].perm.tolist(), [1, 0])
         testpairs2 = [[[1, 2, 3], [4]], [[62], [1, 2]], [[11, 12], [4, 5, 6]]]
         ds2 = dp.SupervisedTranslationDataset(testpairs2)
         batches = ds2.batch(3)
-        self.assertEqual(batches[0].src.seqs.tolist(),
+        self.assertEqual(batches[0].src.seqs.data.tolist(),
                          [[1, 2, 3], [11, 12, 0], [62, 0, 0]])
-        self.assertEqual(batches[0].tgt.seqs.tolist(),
+        self.assertEqual(batches[0].tgt.seqs.data.tolist(),
                          [[4, 5, 6], [1, 2, 0], [4, 0, 0]])
         self.assertEqual(batches[0].perm.tolist(), [1, 2, 0])
         self.assertEqual(batches[0].src.lengths, [3, 2, 1])
@@ -208,6 +208,62 @@ class EncDecPredictionTests(unittest.TestCase):
         self.assertEquals([1, 3, 2], pred)
 
 
+class MultiLayerTrainerTest(unittest.TestCase):
+    def setUp(self):
+        l1, l2, spairs = lang.read_langsv1('eng', 'fra',
+                                           '../data/eng-fra_tut/eng-fra.txt')
+        lang.index_words_from_pairs(l1, l2, spairs)
+        self.ds = dp.SupervisedTranslationDataset.from_strings(spairs, l1, l2)
+        self.model = ed.EncoderDecoderRNN(
+            l1.n_words,
+            l2.n_words,
+            in_embedding_dim=100,
+            out_embedding_dim=100,
+            hidden_dim=100, n_layers=2)
+    def test_train_step(self):
+        '''
+       training a multi-layer encoder-decoder for one step should change its parameters.
+       '''
+        trainer = tr.Trainer(self.model, 0.01, self.ds, 32, 1, reporter=None)
+        before = []
+        beforeshapes = []
+        for param in self.model.parameters():
+            before.append(param.data.tolist())
+            beforeshapes.append(param.shape)
+        trainer.train(1)
+        for i, param in enumerate(self.model.parameters()):
+            self.assertEqual(param.shape, beforeshapes[i])
+            self.assertNotEqual(param.data.tolist(), before[i])
+
+ 
+class BiTrainerTests(unittest.TestCase):
+    def setUp(self):
+        l1, l2, spairs = lang.read_langsv1('eng', 'fra',
+                                           '../data/eng-fra_tut/eng-fra.txt')
+        lang.index_words_from_pairs(l1, l2, spairs)
+        self.ds = dp.SupervisedTranslationDataset.from_strings(spairs, l1, l2)
+        self.model = ed.EncoderDecoderRNN(
+            l1.n_words,
+            l2.n_words,
+            in_embedding_dim=100,
+            out_embedding_dim=100,
+            hidden_dim=100, n_layers=1, bidirectional= True)
+    def test_train_step(self):
+        '''
+       training a bidirectional encoder-decoder for one step should change its parameters.
+       '''
+        trainer = tr.Trainer(self.model, 0.01, self.ds, 32, 1, reporter=None)
+        before = []
+        beforeshapes = []
+        for param in self.model.parameters():
+            before.append(param.data.tolist())
+            beforeshapes.append(param.shape)
+        trainer.train(1)
+        for i, param in enumerate(self.model.parameters()):
+            self.assertEqual(param.shape, beforeshapes[i])
+            self.assertNotEqual(param.data.tolist(), before[i])   
+
+
 class Trainer_Tests(unittest.TestCase):
     def setUp(self):
         l1, l2, spairs = lang.read_langsv1('eng', 'fra',
@@ -308,6 +364,8 @@ if __name__ == '__main__':
     dptest = unittest.defaultTestLoader.loadTestsFromTestCase(DataProcTest)
     trtest = unittest.defaultTestLoader.loadTestsFromTestCase(Trainer_Tests)
     mantests = unittest.defaultTestLoader.loadTestsFromTestCase(ManagerTests)
+    multitests= unittest.defaultTestLoader.loadTestsFromTestCase(MultiLayerTrainerTest) 
+    bitests= unittest.defaultTestLoader.loadTestsFromTestCase(BiTrainerTests) 
     fast = unittest.TestSuite()
     fast.addTest(lang_test_suite)
     fast.addTest(lang_util_test_suite)
@@ -318,3 +376,5 @@ if __name__ == '__main__':
     #unittest.TextTestRunner().run(trtest)
     unittest.TextTestRunner().run(pred)
     unittest.TextTestRunner().run(mantests)
+    unittest.TextTestRunner().run(bitests)
+    #unittest.TextTestRunner().run(multitests)
