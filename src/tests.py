@@ -2,6 +2,7 @@ import unittest
 import torch
 import torch.nn.utils.rnn as rnn
 import torch.autograd as ag
+from  torch.autograd import Variable
 import torch.optim as optim
 import logging
 
@@ -11,6 +12,7 @@ import trainers as tr
 import lang
 import enc_dec as ed
 import manage
+import word_vectors as wv
 
 
 class LangTest(unittest.TestCase):
@@ -350,7 +352,18 @@ class ManagerTests(unittest.TestCase):
         translation = man.l2.dex2sentence(pred)
         self.assertEquals(translation, "by the gods !")
 
-
+class WordVectorTests(unittest.TestCase):
+    def setUp(self):
+        logging.getLogger().setLevel(logging.DEBUG)
+    def test_wv_weights(self):
+        '''
+            Simple test of loading word vectors from a file
+        '''
+        l1, l2, spairs = lang.read_langsv1('eng', 'fra',
+                                           '../data/eng-fra_tut/eng-fra.txt')
+        lang.index_words_from_pairs(l1, l2, spairs)
+        wvec=wv.WordVectors()
+        wvec.load_from_file('../../data/wiki.en.vec',word_set=set(l1.word2index.keys()) )
 
 if __name__ == '__main__':
     lang_test_suite = unittest.defaultTestLoader.loadTestsFromTestCase(
@@ -366,6 +379,7 @@ if __name__ == '__main__':
     mantests = unittest.defaultTestLoader.loadTestsFromTestCase(ManagerTests)
     multitests= unittest.defaultTestLoader.loadTestsFromTestCase(MultiLayerTrainerTest) 
     bitests= unittest.defaultTestLoader.loadTestsFromTestCase(BiTrainerTests) 
+    wvtests= unittest.defaultTestLoader.loadTestsFromTestCase(WordVectorTests) 
     fast = unittest.TestSuite()
     fast.addTest(lang_test_suite)
     fast.addTest(lang_util_test_suite)
@@ -376,5 +390,6 @@ if __name__ == '__main__':
     #unittest.TextTestRunner().run(trtest)
     unittest.TextTestRunner().run(pred)
     unittest.TextTestRunner().run(mantests)
-    unittest.TextTestRunner().run(bitests)
+    #unittest.TextTestRunner().run(bitests)
     #unittest.TextTestRunner().run(multitests)
+    #unittest.TextTestRunner().run(wvtests)
