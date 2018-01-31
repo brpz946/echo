@@ -7,79 +7,7 @@ import torch.nn.functional as F
 
 import lang
 import data_proc as dp
-
-
-def fill_missing_embeddings(seqs, missing_vecs, missing_dict, dimension):
-    out = Variable(torch.zeros(seqs.shape[0], seqs.shape[1], dimension))
-    for i in range(seqs.shape[0]):
-        for j in range(seq.shape[1]):
-            if seqs.data[i][j] in missing_dict:
-                out[i, j, :] = out[i, j, :] + missing[missing_dict[seqs.data[i]
-                                                                   [j]], :]
-    return out
-
-
-class RNN(nn.Module):
-    '''
-        Args:
-            -vocab_size: the size of the vocabulary of input vectors. 
-            -embedding_dim: dimension of word vectors to use
-            -hidden_dim: dimension of hidden units
-            -n_layers: number of layers in recurrent neural net.  See Graves (2014)
-           -bidirectional: whether to use a bidirectional RNN 
-        inputs:
-            -batch: a translation batch of input data 
-            -code: initial hidden units.  If this RNN is a decoder, these are the hidden units  from the last layer of the encoder.  Should be 3d with dimensions n_layers by batch_size by hidden_dim
-        outputs:
-            -the predictions at every time step in packed form (main output of decoder RNNs)
-            -final hidden units of each layer (main output of encoder RNNs)
-    '''
-
-    def __init__(self,
-                 vocab_size,
-                 embedding_dim,
-                 hidden_dim,
-                 n_layers=1,
-                 bidirectional=False,
-                 pretrained_embedding=None):
-        super(RNN, self).__init__()
-        self.n_layers = n_layers
-        self.hidden_dim = hidden_dim
-        self.embedding = nn.Embedding(vocab_size, embedding_dim)
-        self.gru = nn.GRU(
-            input_size=embedding_dim,
-            hidden_size=hidden_dim,
-            num_layers=n_layers,
-            batch_first=True,
-            bidirectional=bidirectional)
-        self.n_directions = 2 if bidirectional else 1
-        if pretrained_embedding is not None:
-            self.pretrained = True
-            self.embedding.weights = pretrained_embedding.weights
-            self.missing = pretrained_embedding.missing
-            self.missing_dict = pretrained_embedding.missing_dict
-        else:
-            self.pretrained = False
-
-    def embed(self, seqs):
-        embedded = self.embedding(seqs)
-        if self.pretrained:
-            dimension = self.embedding.weight.shape[1]
-            embedded = embedded + fill_missing_embeddings(
-                seqs, self.missing, self.missing_dict, dimension)
-        return embedded
-
-    def forward(self, batch, code=None):
-        embedded = self.embed(batch.seqs)
-        packed = rnn.pack_padded_sequence(
-            embedded, batch.lengths, batch_first=True)
-        if code is not None:
-            hidden_seq, final_hidden = self.gru(packed, code)
-        else:
-            hidden_seq, final_hidden = self.gru(packed)
-        #hidden_seq is packed sequence.  when unpacked has dimension batch_size by (max) seq_length by hidden_dim*num_directions
-        return hidden_seq, final_hidden
-
+import basic_rnn
 
 MAX_PREDICTION_LENGTH = 20
 
@@ -96,7 +24,7 @@ class EncoderDecoderRNN(nn.Module):
             -pre_{src,tgt}_embedding: Pre-trained word embeddings for the source or target languages. 
 
         Outputs:
-            --A variable holding the value of the loss function (cross-entropy).
+            --A variable holding the output  of the loss function (cross-entropy).
     '''
 
     def __init__(self,
@@ -112,14 +40,14 @@ class EncoderDecoderRNN(nn.Module):
         super(EncoderDecoderRNN, self).__init__()
         self.out_vocab_size = out_vocab_size
         n_directions = 2 if bidirectional else 1
-        self.encoder = RNN(
+        self.encoder = basic_rnn.RNN(
             in_vocab_size,
             in_embedding_dim,
             hidden_dim,
             n_layers,
             bidirectional=bidirectional,
             pretrained_embedding=pre_src_embedding)
-        self.decoder = RNN(
+        self.decoder = basic_rnn.RNN(
             out_vocab_size,
             out_embedding_dim,
             hidden_dim,

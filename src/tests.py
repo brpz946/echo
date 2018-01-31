@@ -13,7 +13,7 @@ import lang
 import enc_dec as ed
 import manage
 import word_vectors as wv
-
+import basic_rnn
 
 class LangTest(unittest.TestCase):
     def test_add_word(self):
@@ -137,17 +137,30 @@ class LangUtilTest(unittest.TestCase):
 class EncDecTest(unittest.TestCase):
     def test_basic_encoder_decoder(self):
         '''encoder and decoder should process a batch without an error  '''
-        encoder = ed.RNN(5, 6, 7)
+        encoder = basic_rnn.RNN(5, 6, 7)
         input_padded = ag.Variable(
             torch.LongTensor([[1, 2, 3, 4], [1, 0, 0, 0]]))
         batch = dp.TranslationBatch(input_padded, [3, 1])
         _, code = encoder(batch)
         #print(code)
-        decoder = ed.RNN(5, 6, 7)
+        decoder = basic_rnn.RNN(5, 6, 7)
         correct_output_padded = ag.Variable(
             torch.LongTensor([[1, 2, 3, 4], [1, 0, 0, 0]]))
         batch2 = dp.TranslationBatch(correct_output_padded, [4, 1])
         out, _ = decoder(batch2, code)
+
+    def test_rnn_with_extra_input(self):
+        '''  
+        When used with extra input, an rnn should process a batch without error
+        '''
+        encoder = basic_rnn.RNN(5, 6, 7, extra_input_dim=1)
+        input_padded = ag.Variable(
+            torch.LongTensor([[1, 2, 3, 4], [1, 0, 0, 0]]))
+        extra_in=ag.Variable(torch.Tensor(2,4,1))
+        extra_in.requires_grad =True
+        batch = dp.TranslationBatch(input_padded, [3, 1])
+        _, code = encoder(batch,extra_input=extra_in)
+        #
 
     def test_basic_encoder_decoder2(self):
         '''The encoder_decoder should produce output of the right shape '''
