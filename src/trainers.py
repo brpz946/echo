@@ -25,7 +25,8 @@ class Trainer:
                  batchsize,
                  report_interval=100,
                  cuda=False,
-                 reporter=None,opt='sgd'):
+                 reporter=None,
+                 opt='sgd'):
         self.model = model
         self.dataset = dataset
         self.lr = lr
@@ -33,13 +34,13 @@ class Trainer:
         self.report_interval = report_interval
         self.reporter = reporter
         self.cuda = cuda
-        self.opt=opt
+        self.opt = opt
 
     def train(self, steps):
-        if self.opt =='sgd': 
+        if self.opt == 'sgd':
             optimizer = optim.SGD(self.model.parameters(), lr=self.lr)
-        elif self.opt =='rmsprop':
-            optimizer=optim.RMSprop(self.model.parameters())
+        elif self.opt == 'rmsprop':
+            optimizer = optim.RMSprop(self.model.parameters())
             logging.debug("using rmsprop optimizer")
         batches = self.dataset.batch(self.batchsize)
         i = 0

@@ -2,7 +2,7 @@ import unittest
 import torch
 import torch.nn.utils.rnn as rnn
 import torch.autograd as ag
-from  torch.autograd import Variable
+from torch.autograd import Variable
 import torch.optim as optim
 import logging
 
@@ -78,7 +78,8 @@ class DataProcTest(unittest.TestCase):
         testpairs = [[[1, 2, 3], [1]], [[62], [1, 2]], [[11, 12], [0, 2]]]
         ds1 = dp.SupervisedTranslationDataset(testpairs)
         batches = ds1.batch(2)
-        self.assertEqual(batches[0].src.seqs.data.tolist(), [[1, 2, 3], [62, 0, 0]])
+        self.assertEqual(batches[0].src.seqs.data.tolist(),
+                         [[1, 2, 3], [62, 0, 0]])
         self.assertEqual(batches[0].tgt.seqs.data.tolist(), [[1, 2], [1, 0]])
         self.assertEqual(batches[1].src.seqs.data.tolist(), [[11, 12]])
         self.assertEqual(batches[0].perm.tolist(), [1, 0])
@@ -140,7 +141,7 @@ class EncDecTest(unittest.TestCase):
         input_padded = ag.Variable(
             torch.LongTensor([[1, 2, 3, 4], [1, 0, 0, 0]]))
         batch = dp.TranslationBatch(input_padded, [3, 1])
-        _,code = encoder(batch)
+        _, code = encoder(batch)
         #print(code)
         decoder = ed.RNN(5, 6, 7)
         correct_output_padded = ag.Variable(
@@ -221,7 +222,9 @@ class MultiLayerTrainerTest(unittest.TestCase):
             l2.n_words,
             in_embedding_dim=100,
             out_embedding_dim=100,
-            hidden_dim=100, n_layers=2)
+            hidden_dim=100,
+            n_layers=2)
+
     def test_train_step(self):
         '''
        training a multi-layer encoder-decoder for one step should change its parameters.
@@ -237,7 +240,7 @@ class MultiLayerTrainerTest(unittest.TestCase):
             self.assertEqual(param.shape, beforeshapes[i])
             self.assertNotEqual(param.data.tolist(), before[i])
 
- 
+
 class BiTrainerTests(unittest.TestCase):
     def setUp(self):
         l1, l2, spairs = lang.read_langsv1('eng', 'fra',
@@ -249,7 +252,10 @@ class BiTrainerTests(unittest.TestCase):
             l2.n_words,
             in_embedding_dim=100,
             out_embedding_dim=100,
-            hidden_dim=100, n_layers=1, bidirectional= True)
+            hidden_dim=100,
+            n_layers=1,
+            bidirectional=True)
+
     def test_train_step(self):
         '''
        training a bidirectional encoder-decoder for one step should change its parameters.
@@ -263,7 +269,7 @@ class BiTrainerTests(unittest.TestCase):
         trainer.train(1)
         for i, param in enumerate(self.model.parameters()):
             self.assertEqual(param.shape, beforeshapes[i])
-            self.assertNotEqual(param.data.tolist(), before[i])   
+            self.assertNotEqual(param.data.tolist(), before[i])
 
 
 class Trainer_Tests(unittest.TestCase):
@@ -283,7 +289,12 @@ class Trainer_Tests(unittest.TestCase):
         '''
        training the encoder-decoder for one step should change its parameters.
        '''
-        trainer = tr.Trainer(model=self.model, lr=0.01, dataset=self.ds, batchsize=32,  reporter=None)
+        trainer = tr.Trainer(
+            model=self.model,
+            lr=0.01,
+            dataset=self.ds,
+            batchsize=32,
+            reporter=None)
         before = []
         beforeshapes = []
         for param in self.model.parameters():
@@ -303,7 +314,12 @@ class Trainer_Tests(unittest.TestCase):
             return
         self.model = self.model.cuda()
         trainer = tr.Trainer(
-            model=self.model,lr=0.01, dataset=self.ds, batchsize=32, reporter=None, cuda=True)
+            model=self.model,
+            lr=0.01,
+            dataset=self.ds,
+            batchsize=32,
+            reporter=None,
+            cuda=True)
         before = []
         beforeshapes = []
         for param in self.model.parameters():
@@ -314,6 +330,7 @@ class Trainer_Tests(unittest.TestCase):
             self.assertEqual(param.shape, beforeshapes[i])
             self.assertNotEqual(param.data.tolist(), before[i])
 
+
 class ManagerTestsPretrained(unittest.TestCase):
     def test_basic_run_pretrained_gpu(self):
         '''The model should learn to translate when the dataset consists of one phrase when it uses pretrained word vectors and runs on the gpu '''
@@ -321,7 +338,12 @@ class ManagerTestsPretrained(unittest.TestCase):
             print('skipping GPU test for lack of cuda')
             return
         man = manage.Manager.basic_enc_dec_from_file(
-            "../data/by_the_gods_dustballs.txt", loglevel=logging.WARNING, pretrained=True, pre_src_path='../data/fastText_word_vectors/wiki.en.vec', pre_tgt_path='../data/fastText_word_vectors/wiki.en.vec',cuda=True)
+            "../data/by_the_gods_dustballs.txt",
+            loglevel=logging.WARNING,
+            pretrained=True,
+            pre_src_path='../data/fastText_word_vectors/wiki.en.vec',
+            pre_tgt_path='../data/fastText_word_vectors/wiki.en.vec',
+            cuda=True)
         man.trainer.train(100)
         dexsamp = man.l1.sentence2dex("by the gods ! dustballs !")
         pred = man.model.predict(dexsamp)
@@ -331,14 +353,16 @@ class ManagerTestsPretrained(unittest.TestCase):
     def test_basic_run_pretrained(self):
         '''The model should learn to translate when the dataset consists of one phrase when it uses pretrained word vectors  '''
         man = manage.Manager.basic_enc_dec_from_file(
-            "../data/by_the_gods_dustballs.txt", loglevel=logging.WARNING, pretrained=True, pre_src_path='../data/fastText_word_vectors/wiki.en.vec', pre_tgt_path='../data/fastText_word_vectors/wiki.en.vec')
+            "../data/by_the_gods_dustballs.txt",
+            loglevel=logging.WARNING,
+            pretrained=True,
+            pre_src_path='../data/fastText_word_vectors/wiki.en.vec',
+            pre_tgt_path='../data/fastText_word_vectors/wiki.en.vec')
         man.trainer.train(100)
         dexsamp = man.l1.sentence2dex("by the gods ! dustballs !")
         pred = man.model.predict(dexsamp)
         translation = man.l2.dex2sentence(pred)
         self.assertEquals(translation, "by the gods ! dustballs !")
-
-
 
 
 class ManagerTests(unittest.TestCase):
@@ -352,42 +376,48 @@ class ManagerTests(unittest.TestCase):
         translation = man.l2.dex2sentence(pred)
         self.assertEquals(translation, "by the gods !")
 
-  
-    def test_basic_run_gpu(self): 
+    def test_basic_run_gpu(self):
         '''The model should learn to translate when the dataset consists of one phrase when trained on the gpu '''
         if not torch.cuda.is_available():
             print('skipping GPU test for lack of cuda')
             return
 
         man = manage.Manager.basic_enc_dec_from_file(
-            "../data/by_the_gods.txt", loglevel=logging.WARNING,cuda=True)
+            "../data/by_the_gods.txt", loglevel=logging.WARNING, cuda=True)
         man.trainer.train(100)
         dexsamp = man.l1.sentence2dex("by the gods !")
         pred = man.model.predict(dexsamp)
         translation = man.l2.dex2sentence(pred)
         self.assertEquals(translation, "by the gods !")
 
+
 class WordVectorTests(unittest.TestCase):
     def setUp(self):
         logging.getLogger().setLevel(logging.INFO)
-        self.l1, self.l2, self.spairs = lang.read_langsv1('eng', 'fra',
-                                           '../data/eng-fra_tut/eng-fra.txt')
+        self.l1, self.l2, self.spairs = lang.read_langsv1(
+            'eng', 'fra', '../data/eng-fra_tut/eng-fra.txt')
         lang.index_words_from_pairs(self.l1, self.l2, self.spairs)
-        self.wvec=wv.WordVectors.from_file('../data/fastText_word_vectors/wiki.en.vec',word_set=set(self.l1.word2index.keys()) )
+        self.wvec = wv.WordVectors.from_file(
+            '../data/fastText_word_vectors/wiki.en.vec',
+            word_set=set(self.l1.word2index.keys()))
+
     def test_embedding_load(self):
         '''
             Simple test of loading word vectors from a file and organizing them they can be used in a translation model
         '''
-        missing_words=set(self.l1.word2index.keys()).difference(self.wvec.word2vec.keys())
+        missing_words = set(self.l1.word2index.keys()).difference(
+            self.wvec.word2vec.keys())
         logging.debug("missing words are: " + str(missing_words))
-        pt=self.wvec.produce_embedding_vecs(self.l1,missing_words)
-        sosvec=torch.zeros(302)
-        sosvec[300]=1
-        self.assertEqual(pt.missing_dict[lang.SOS_TOKEN],0)
-        self.assertEqual(pt.missing_dict[lang.EOS_TOKEN],1)
-        self.assertEqual(sosvec[300:302].tolist(), pt.missing[0,300:302].data.tolist())
+        pt = self.wvec.produce_embedding_vecs(self.l1, missing_words)
+        sosvec = torch.zeros(302)
+        sosvec[300] = 1
+        self.assertEqual(pt.missing_dict[lang.SOS_TOKEN], 0)
+        self.assertEqual(pt.missing_dict[lang.EOS_TOKEN], 1)
+        self.assertEqual(sosvec[300:302].tolist(),
+                         pt.missing[0, 300:302].data.tolist())
         self.assertFalse(pt.weights.requires_grad)
-        self.assertTrue(pt.missing.requires_grad) 
+        self.assertTrue(pt.missing.requires_grad)
+
 
 if __name__ == '__main__':
     lang_test_suite = unittest.defaultTestLoader.loadTestsFromTestCase(
@@ -400,10 +430,12 @@ if __name__ == '__main__':
     dptest = unittest.defaultTestLoader.loadTestsFromTestCase(DataProcTest)
     trtest = unittest.defaultTestLoader.loadTestsFromTestCase(Trainer_Tests)
     mantests = unittest.defaultTestLoader.loadTestsFromTestCase(ManagerTests)
-    premantests=unittest.defaultTestLoader.loadTestsFromTestCase(ManagerTestsPretrained)
-    multitests= unittest.defaultTestLoader.loadTestsFromTestCase(MultiLayerTrainerTest) 
-    bitests= unittest.defaultTestLoader.loadTestsFromTestCase(BiTrainerTests) 
-    wvtests= unittest.defaultTestLoader.loadTestsFromTestCase(WordVectorTests) 
+    premantests = unittest.defaultTestLoader.loadTestsFromTestCase(
+        ManagerTestsPretrained)
+    multitests = unittest.defaultTestLoader.loadTestsFromTestCase(
+        MultiLayerTrainerTest)
+    bitests = unittest.defaultTestLoader.loadTestsFromTestCase(BiTrainerTests)
+    wvtests = unittest.defaultTestLoader.loadTestsFromTestCase(WordVectorTests)
     fast = unittest.TestSuite()
     fast.addTest(lang_test_suite)
     fast.addTest(lang_util_test_suite)

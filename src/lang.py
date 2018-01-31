@@ -8,7 +8,8 @@ import torch
 import torch.autograd as ag
 SOS_TOKEN = 1
 EOS_TOKEN = 2
-NUM_RESERVED_INDEXES =3 # null +SOS_TOKEN + EOS_TOKEN
+NUM_RESERVED_INDEXES = 3  # null +SOS_TOKEN + EOS_TOKEN
+
 
 class Lang:
     '''
@@ -75,7 +76,7 @@ def normalize_string(s):
     return s
 
 
-def read_langsv1(lang1, lang2, path,filt=None, reverse=False):
+def read_langsv1(lang1, lang2, path, filt=None, reverse=False):
     '''
         read language data from a file in the format used in the Pytorch tutorial
         http://pytorch.org/tutorials/intermediate/seq2seq_translation_tutorial.html
@@ -85,10 +86,9 @@ def read_langsv1(lang1, lang2, path,filt=None, reverse=False):
     lines = open(path, encoding='utf-8').read().strip().split('\n')
     logging.info(str(len(lines)) + 'lines read')
 
-     
-    pairs = [[normalize_string(s) for s in l.split('\t') ] for l in lines ]
+    pairs = [[normalize_string(s) for s in l.split('\t')] for l in lines]
     if filt is not None:
-        pairs=[pair for pair in pairs if filt(pair) ]    
+        pairs = [pair for pair in pairs if filt(pair)]
         logging.info(str(len(pairs)) + "lines after filtering")
     input_lang = Lang(lang1)
     output_lang = Lang(lang2)
@@ -111,20 +111,18 @@ def spairs_to_ipairs(pairs, lang1, lang2):
             seq.append(EOS_TOKEN)
     return ipairs
 
+
 MAX_LENGTH = 10
 
-eng_prefixes = (
-            "i am ", "i m ",
-                "he is", "he s ",
-                    "she is", "she s",
-                        "you are", "you re ",
-                            "we are", "we re ",
-                                "they are", "they re "
-                                )
+eng_prefixes = ("i am ", "i m ", "he is", "he s ", "she is", "she s",
+                "you are", "you re ", "we are", "we re ", "they are",
+                "they re ")
+
 
 def filter_pair_tut(pair):
     '''
      purpose of this method is to allow replication of the tutorial at
     ://pytorch.org/tutorials/intermediate/seq2seq_translation_tutorial.htmli   
-    ''' 
-    return  len(pair[0].split(' ')) < MAX_LENGTH and  len(pair[1].split(' '))< MAX_LENGTH and pair[0].startswith(eng_prefixes)
+    '''
+    return len(pair[0].split(' ')) < MAX_LENGTH and len(
+        pair[1].split(' ')) < MAX_LENGTH and pair[0].startswith(eng_prefixes)

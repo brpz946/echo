@@ -8,16 +8,17 @@ import torch.nn.functional as F
 import lang
 import data_proc as dp
 
-def fill_missing_embeddings(seqs,missing_vecs,missing_dict,dimension):
-    out=Variable(torch.zeros(seqs.shape[0],seqs.shape[1],dimension ))  
+
+def fill_missing_embeddings(seqs, missing_vecs, missing_dict, dimension):
+    out = Variable(torch.zeros(seqs.shape[0], seqs.shape[1], dimension))
     for i in range(seqs.shape[0]):
         for j in range(seq.shape[1]):
             if seqs.data[i][j] in missing_dict:
-                out[i,j,:]=out[i,j,:]+missing[missing_dict[seqs.data[i][j]] ,:]
+                out[i, j, :] = out[i, j, :] + missing[missing_dict[seqs.data[i]
+                                                                   [j]], :]
     return out
 
-#plan: extract a superclass of Encoder and Decoder RNN
-# to account for pretrained word vectors, need to also chainge prediction
+
 class RNN(nn.Module):
     '''
         Args:
@@ -34,7 +35,13 @@ class RNN(nn.Module):
             -final hidden units of each layer (main output of encoder RNNS)
     '''
 
-    def __init__(self, vocab_size, embedding_dim, hidden_dim, n_layers=1, bidirectional =False, pretrained_embedding=None):
+    def __init__(self,
+                 vocab_size,
+                 embedding_dim,
+                 hidden_dim,
+                 n_layers=1,
+                 bidirectional=False,
+                 pretrained_embedding=None):
         super(RNN, self).__init__()
         self.n_layers = n_layers
         self.hidden_dim = hidden_dim
@@ -43,35 +50,35 @@ class RNN(nn.Module):
             input_size=embedding_dim,
             hidden_size=hidden_dim,
             num_layers=n_layers,
-            batch_first=True, 
-            bidirectional= bidirectional)
+            batch_first=True,
+            bidirectional=bidirectional)
         self.n_directions = 2 if bidirectional else 1
         if pretrained_embedding is not None:
-            self.pretrained=True
-            self.embedding.weights=pretrained_embedding.weights
-            self.missing=pretrained_embedding.missing
-            self.missing_dict=pretrained_embedding.missing_dict
-        else: 
-            self.pretrained= False
-        
+            self.pretrained = True
+            self.embedding.weights = pretrained_embedding.weights
+            self.missing = pretrained_embedding.missing
+            self.missing_dict = pretrained_embedding.missing_dict
+        else:
+            self.pretrained = False
+
     def embed(self, seqs):
         embedded = self.embedding(seqs)
         if self.pretrained:
             dimension = self.embedding.weight.shape[1]
-            embedded = embedded+fill_missing_embeddings(seqs, self.missing, self.missing_dict, dimension)
-        return embedded 
+            embedded = embedded + fill_missing_embeddings(
+                seqs, self.missing, self.missing_dict, dimension)
+        return embedded
 
     def forward(self, batch, code=None):
-        embedded= self.embed(batch.seqs)    
+        embedded = self.embed(batch.seqs)
         packed = rnn.pack_padded_sequence(
             embedded, batch.lengths, batch_first=True)
         if code is not None:
-            hidden_seq, final_hidden = self.gru(packed, code) 
+            hidden_seq, final_hidden = self.gru(packed, code)
         else:
-            hidden_seq, final_hidden =self.gru(packed)
+            hidden_seq, final_hidden = self.gru(packed)
         #hidden_seq is packed sequence.  when unpacked has dimension batch_size by (max) seq_length by hidden_dim*num_directions
         return hidden_seq, final_hidden
-
 
 
 MAX_PREDICTION_LENGTH = 20
@@ -91,15 +98,30 @@ class EncoderDecoderRNN(nn.Module):
                  in_embedding_dim,
                  out_embedding_dim,
                  hidden_dim,
-                 n_layers=1, n_directions=1, bidirectional=False, pre_src_embedding=None, pre_tgt_embedding=None):
+                 n_layers=1,
+                 n_directions=1,
+                 bidirectional=False,
+                 pre_src_embedding=None,
+                 pre_tgt_embedding=None):
         super(EncoderDecoderRNN, self).__init__()
         self.out_vocab_size = out_vocab_size
-        self.encoder = RNN(in_vocab_size, in_embedding_dim, hidden_dim,
-                                  n_layers,bidirectional= bidirectional,pretrained_embedding=pre_src_embedding )
-        self.decoder = RNN(out_vocab_size, out_embedding_dim,
-                                  hidden_dim, n_layers, bidirectional=bidirectional,pretrained_embedding= pre_tgt_embedding)
-        self.n_directions= 2 if bidirectional else 1
-        self.lin = torch.nn.Linear(self.n_directions*hidden_dim, out_vocab_size, bias=False)
+        self.encoder = RNN(
+            in_vocab_size,
+            in_embedding_dim,
+            hidden_dim,
+            n_layers,
+            bidirectional=bidirectional,
+            pretrained_embedding=pre_src_embedding)
+        self.decoder = RNN(
+            out_vocab_size,
+            out_embedding_dim,
+            hidden_dim,
+            n_layers,
+            bidirectional=bidirectional,
+            pretrained_embedding=pre_tgt_embedding)
+        self.n_directions = 2 if bidirectional else 1
+        self.lin = torch.nn.Linear(
+            self.n_directions * hidden_dim, out_vocab_size, bias=False)
         self.loss = nn.CrossEntropyLoss(ignore_index=0)  #ignore padding
 
     def encode_decode(self, batch):
@@ -120,7 +142,9 @@ class EncoderDecoderRNN(nn.Module):
         out = out.view(-1, self.out_vocab_size)
         goal = torch.cat(
             (batch.tgt.seqs[:, 1:],
-             ag.Variable(batch.tgt.seqs.data.new(batch.tgt.seqs.data.shape[0],1).fill_(0)) )  ,
+             ag.Variable(
+                 batch.tgt.seqs.data.new(batch.tgt.seqs.data.shape[0],
+                                         1).fill_(0))),
             1)  #prediction is staggered.  at sequence element t we predict t+1
         out = self.loss(out, goal.view(-1))
         return out
