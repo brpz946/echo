@@ -355,15 +355,24 @@ class ManagerTests(unittest.TestCase):
 class WordVectorTests(unittest.TestCase):
     def setUp(self):
         logging.getLogger().setLevel(logging.DEBUG)
-    def test_wv_weights(self):
+    def test_embedding_load(self):
         '''
-            Simple test of loading word vectors from a file
+            Simple test of loading word vectors from a file and organizing them they can be used in a translation model
         '''
+        print('hello')
         l1, l2, spairs = lang.read_langsv1('eng', 'fra',
                                            '../data/eng-fra_tut/eng-fra.txt')
         lang.index_words_from_pairs(l1, l2, spairs)
         wvec=wv.WordVectors()
-        wvec.load_from_file('../../data/wiki.en.vec',word_set=set(l1.word2index.keys()) )
+        missing_words=wvec.load_from_file('../../data/wiki.en.vec',word_set=set(l1.word2index.keys()) )
+        weights, missing, missing_dict=wvec.produce_embedding_vecs(l1,missing_words)
+        sosvec=torch.zeros(302)
+        sosvec[300]=1
+        self.assertEqual(missing_dict[lang.SOS_TOKEN],0)
+        self.assertEqual(missing_dict[lang.EOS_TOKEN],1)
+        self.assertEqual(sosvec[300:302].tolist(), missing[0,300:302].data.tolist())
+        self.assertFalse(weights.requires_grad)
+        self.assertTrue(missing.requires_grad) 
 
 if __name__ == '__main__':
     lang_test_suite = unittest.defaultTestLoader.loadTestsFromTestCase(
@@ -392,4 +401,4 @@ if __name__ == '__main__':
     unittest.TextTestRunner().run(mantests)
     #unittest.TextTestRunner().run(bitests)
     #unittest.TextTestRunner().run(multitests)
-    #unittest.TextTestRunner().run(wvtests)
+    unittest.TextTestRunner().run(wvtests)
