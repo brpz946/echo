@@ -5,10 +5,13 @@ import lang
 from torch.nn import Parameter
 PRINT_INTERVAL=20000
 class WordVectors:
-    def __init__(self):
-        self.word2vec={}
-    def load_from_file(self, path, max_iter=-1,  word_set=None, format="fasttext"):
+    def __init__(self,word2vec,dimension):
+        self.word2vec=word2vec
+        self.dimension=dimension
+    @staticmethod
+    def from_file(path, max_iter=-1,  word_set=None, format="fasttext"):
         logging.info("Loading word vectors from file: " + path)
+        word2vec={}
         if word_set is not None:
             using_word_set=True
             local_word_set=word_set.copy()
@@ -20,7 +23,7 @@ class WordVectors:
                 # based on https://github.com/facebookresearch/MUSE/blob/master/src/utils.py 
                 for i, line in enumerate(f):
                     if i ==0 :
-                        self.dimension = int(line.split()[1])
+                        dimension = int(line.split()[1])
                         continue
                     if max_iter>=0 and i >= max_iter:
                         break
@@ -41,7 +44,7 @@ class WordVectors:
                     vec =  np.fromstring(vec, sep=' ')
                     if np.linalg.norm(vec) ==0:
                         vec[0] = 0.01
-                    self.word2vec[word]= torch.Tensor(vec)
+                    word2vec[word]= torch.Tensor(vec)
                     n_found+=1
         else:
             raise Exception("Unknown Format")
@@ -50,7 +53,7 @@ class WordVectors:
         if using_word_set:
             if local_word_set:
                 logging.warning("Did not find word vectors for the words: "+ str(local_word_set) )
-        return local_word_set
+        return WordVectors(word2vec,dimension)
 
     def produce_embedding_vecs(self,language, missing_word_set ):
         '''
@@ -80,7 +83,7 @@ class WordVectors:
         for word in missing_word_set:
             missing_dict[language.word2index[word]]=j
             j=j+1
-        return weights, missing, missing_dict             
+        return  Pretrained_Embedding(weights, missing, missing_dict)             
 
     def apply_to_weights(self, weights, language, index_set=None):
         if index_set == None:
@@ -90,7 +93,7 @@ class WordVectors:
             weights[index,:]=self.word2vec[language.index2word[index]]
         return weights
 
-class pretrained_embedding:
+class Pretrained_Embedding:
     def __init__(self,weights,missing,missing_dict):
         self.weights=weights
         self.missing=missing

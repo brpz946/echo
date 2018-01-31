@@ -23,7 +23,7 @@ class Trainer:
                  lr,
                  dataset,
                  batchsize,
-                 report_interval,
+                 report_interval=100,
                  cuda=False,
                  reporter=None,opt='sgd'):
         self.model = model
