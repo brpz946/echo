@@ -22,14 +22,14 @@ def fill_missing_embeddings(seqs, missing_vecs, missing_dict, dimension):
 class RNN(nn.Module):
     '''
         Args:
-            -vocab_size: the size of the vocabulary the decoder is to decode
+            -vocab_size: the size of the vocabulary of input vectors. 
             -embedding_dim: dimension of word vectors to use
              -hidden_dim: dimension of hidden units
             -n_layers: number of layers in recurrent neural net.  See Graves (2014)
            -bidirectional: whether to use a bidirectional rnn 
         inputs:
-            -batch: a translation batch of correct output data
-            -code: the hidden units output from the last layer of the encoder.  Should be 3d with dimensions n_layers by batch_size by hidden_dim
+            -batch: a translation batch of input data 
+            -code: initial hidden units.  If this rnn is a decoder, these are the hidden units  from the last layer of the encoder.  Should be 3d with dimensions n_layers by batch_size by hidden_dim
         outputs:
             -the predictions at every time step in packed form (main output of decoder RNNs)
             -final hidden units of each layer (main output of encoder RNNS)
