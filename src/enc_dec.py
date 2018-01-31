@@ -24,15 +24,15 @@ class RNN(nn.Module):
         Args:
             -vocab_size: the size of the vocabulary of input vectors. 
             -embedding_dim: dimension of word vectors to use
-             -hidden_dim: dimension of hidden units
+            -hidden_dim: dimension of hidden units
             -n_layers: number of layers in recurrent neural net.  See Graves (2014)
-           -bidirectional: whether to use a bidirectional rnn 
+           -bidirectional: whether to use a bidirectional RNN 
         inputs:
             -batch: a translation batch of input data 
-            -code: initial hidden units.  If this rnn is a decoder, these are the hidden units  from the last layer of the encoder.  Should be 3d with dimensions n_layers by batch_size by hidden_dim
+            -code: initial hidden units.  If this RNN is a decoder, these are the hidden units  from the last layer of the encoder.  Should be 3d with dimensions n_layers by batch_size by hidden_dim
         outputs:
             -the predictions at every time step in packed form (main output of decoder RNNs)
-            -final hidden units of each layer (main output of encoder RNNS)
+            -final hidden units of each layer (main output of encoder RNNs)
     '''
 
     def __init__(self,
@@ -86,10 +86,17 @@ MAX_PREDICTION_LENGTH = 20
 
 class EncoderDecoderRNN(nn.Module):
     '''
-        inputs:
+        Inputs:
             -- A supervised translation batch, consisting of an input and an output batch.
-        outputs:
-            --variable holding the value of the loss function (cross-entropy )
+            --{in,out}_vocab_size: The size of the {input, output} vocabulary. 
+            --{in,out}_embedding_dim: The dimension of the {input, output} word vector embeddings.
+            --hidden_dim: The dimension of the hidden layers in the Encoder.  The decoder hidden layers will have dimension n_directions*hidden_dim.
+            --n_layer: The number of hidden layers.  See Graves (2014)
+            -bidirectional: Whether the encoder is bidirectional.  The decoder will always be one-directional, but will have a hidden layer twice as large if bidirectional=True
+            -pre_{src,tgt}_embedding: Pre-trained word embeddings for the source or target languages. 
+
+        Outputs:
+            --A variable holding the value of the loss function (cross-entropy).
     '''
 
     def __init__(self,
@@ -99,12 +106,12 @@ class EncoderDecoderRNN(nn.Module):
                  out_embedding_dim,
                  hidden_dim,
                  n_layers=1,
-                 n_directions=1,
                  bidirectional=False,
                  pre_src_embedding=None,
                  pre_tgt_embedding=None):
         super(EncoderDecoderRNN, self).__init__()
         self.out_vocab_size = out_vocab_size
+        n_directions = 2 if bidirectional else 1
         self.encoder = RNN(
             in_vocab_size,
             in_embedding_dim,
@@ -116,12 +123,11 @@ class EncoderDecoderRNN(nn.Module):
             out_vocab_size,
             out_embedding_dim,
             hidden_dim,
-            n_layers,
-            bidirectional=bidirectional,
+            n_directions*n_layers,
+            bidirectional=False,
             pretrained_embedding=pre_tgt_embedding)
-        self.n_directions = 2 if bidirectional else 1
         self.lin = torch.nn.Linear(
-            self.n_directions * hidden_dim, out_vocab_size, bias=False)
+             hidden_dim, out_vocab_size, bias=False)
         self.loss = nn.CrossEntropyLoss(ignore_index=0)  #ignore padding
 
     def encode_decode(self, batch):
@@ -152,10 +158,10 @@ class EncoderDecoderRNN(nn.Module):
     def predict(self, in_seq, in_seq_len=None):
         '''
             Args:
-                -in_seq: list of integers. the sequence of interest
-                -in_seq_len: list of one element, the length of the sequence in in_seq.  Allows padding
+                -in_seq: A list of integers containing the sequence of interest.
+                -in_seq_len: A list of one element, the length of the sequence in in_seq.  This allows the use of padding.
             Returns:
-                - a list of integers. the predicted output sequence
+                - A list of integers containing the predicted output sequence.
         '''
         cuda = next(self.parameters()).is_cuda
         if in_seq_len == None:
