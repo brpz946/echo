@@ -11,6 +11,7 @@ import data_proc as dp
 import trainers as tr
 import lang
 import enc_dec as ed
+import search_rnn
 import manage
 import word_vectors as wv
 import basic_rnn
@@ -431,7 +432,13 @@ class WordVectorTests(unittest.TestCase):
         self.assertFalse(pt.weights.requires_grad)
         self.assertTrue(pt.missing.requires_grad)
 
-
+class SearchRNNTests(unittest.TestCase):
+    def test_simp(self):
+        sch=search_rnn.SearchRNN(5,5,2,3,6,7)
+        src_batch=dp.TranslationBatch( Variable(torch.LongTensor([[4,3,2],[1,0,0]])) ,[3,1])
+        tgt_batch=dp.TranslationBatch(Variable(torch.LongTensor([[3,4,0],[3,3,3]])) ,[2,3])
+        batch=dp.SupervisedTranslationBatch(src_batch,tgt_batch,torch.LongTensor([0,1])  )
+        sch(batch)
 if __name__ == '__main__':
     lang_test_suite = unittest.defaultTestLoader.loadTestsFromTestCase(
         LangTest)
@@ -449,16 +456,18 @@ if __name__ == '__main__':
         MultiLayerTrainerTest)
     bitests = unittest.defaultTestLoader.loadTestsFromTestCase(BiTrainerTests)
     wvtests = unittest.defaultTestLoader.loadTestsFromTestCase(WordVectorTests)
+    schtests=  unittest.defaultTestLoader.loadTestsFromTestCase(SearchRNNTests)
     fast = unittest.TestSuite()
     fast.addTest(lang_test_suite)
     fast.addTest(lang_util_test_suite)
-    unittest.TextTestRunner().run(fast)
-    unittest.TextTestRunner().run(enc)
-    unittest.TextTestRunner().run(dptest)
+    #unittest.TextTestRunner().run(fast)
+    #unittest.TextTestRunner().run(enc)
+    #unittest.TextTestRunner().run(dptest)
     #unittest.TextTestRunner().run(trtest) #slow
-    unittest.TextTestRunner().run(pred)
-    unittest.TextTestRunner().run(mantests)
+    #unittest.TextTestRunner().run(pred)
+    #unittest.TextTestRunner().run(mantests)
     #unittest.TextTestRunner().run(premantests) #slow
     #unittest.TextTestRunner().run(bitests) #slow
     #unittest.TextTestRunner().run(multitests) #slow
     #unittest.TextTestRunner().run(wvtests) #slow
+    unittest.TextTestRunner().run(schtests)

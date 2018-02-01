@@ -66,6 +66,7 @@ class RNN(nn.Module):
 
     def embed(self, seqs):
         embedded = self.embedding(seqs)
+
         if self.pretrained:
             dimension = self.embedding.weight.shape[1]
             embedded = embedded + fill_missing_embeddings(
@@ -75,6 +76,7 @@ class RNN(nn.Module):
     def forward(self, batch, code=None, extra_input=None):
         embedded = self.embed(batch.seqs)
         if self.extra_input_dim > 0:
+            #import pdb; pdb.set_trace()
             embedded=torch.cat( (embedded,extra_input),2)
 
         packed = rnn.pack_padded_sequence(
