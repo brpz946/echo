@@ -3,16 +3,8 @@ import torch.nn.utils.rnn as rnn
 from torch.autograd import Variable
 
 import basic_rnn as basic
-#plan: will likely have to process target batches one timestep at a time, since I need the hidden unit from the last time step to get the correct context vector for this timestep
-#how to deal with differing sequence lengths?
-#could just compute up to maximum sequence length and just throw away excess time steps.  Inefficent,  But might be less so than looping through sequences beause of python overhead
-#or: could do the following: each time step, check which sequences have already terminated.  Create a new variable consisting of the sequences above that. copy any just-completed sequences to an output storage variable that starts out as zero.  Apply one step of the gru to the variable of still runnning sequences.
-#Seems like it could work.
-#either way, probably not a big deal because of the dominance of softmax in computation cost.
-
-#problem: Raw softmax does not have an ignore_index argument, but this is what we need to compute the ALpha function batchwise.  Guess I could write one in CUDA if it was important to performance.
-#but probably it is not worth it
-#actually: here is a cool hack: use -infinity.
+#todo: finish loop body. Add a paramter enabling the creation of RNNs that work entirely on unpacked sequences. Need the decoder to work that way here
+#Also add the ability to extract a certain number of timesteps and batches from a supervised translation dataset.
 class SearchRNN(nn.Module):
     def __init__(self,
                  src_vocab_size,
@@ -41,37 +33,41 @@ class SearchRNN(nn.Module):
             pretrained_embedding=pre_tgt_embedding,
             extra_input_dim=2*src_hidden_dim)
         self.U=nn.Linear(2*src_hidden_dim,tgt_hidden_dim)
-       self.loss = nn.CrossEntropyLoss(ignore_index=0)  #ignore padding
-        
-         
+        self.loss = nn.CrossEntropyLoss(ignore_index=0)  #ignore padding
+        self.afunc=Afunc(tgt_hidden_dim) 
+        self.softmax=nn.softmax(dim=1)
+
    def forward(self,batch):
       batchsize=batch.perm.shape[0]
-      src_hidden_seq, =self.encoder(batch.src) 
+      src_hidden_seq,_ =self.encoder(batch.src) 
       src_hidden_seq=rnn.pad_packed_sequence(src_hidden_seq)
-      src_hidden_seq=src_hidden_seq[batch.perm, :,:] #has dimensions batchsize by max sequence length by src_hidden_dim*2
-      Uh=self.U(src_hidden_seq) #has dimension batchsize by max sequence length by tgt_hidden_dim
+      src_hidden_seq=src_hidden_seq[batch.perm, :,:] #has dimensions batchsize by (src) max sequence length by src_hidden_dim*2
+      Uh=self.U(src_hidden_seq) #has dimension batchsize by (src) max sequence length by tgt_hidden_dim
       tgt_hidden_layer = Variable(torch.zeros(batchsize,self.decoder.n_layers,self.decoder.hidden_dim ))
-      max_seq_len=src_hidden_seq.shape[1]
+      src_max_seq_len=src_hidden_seq.shape[1]
+      padding_knockout=src_hidden_seq.new(bathsize,src_max_seq_len).zero_()
+      num_continuing=batchsize # at the current timestep, how many setences have yet to terminate
+      for k in range(batchsize):
+          padding_knockout[batch.src.lengths[k]: ]=-float("inf")
       for i in range(max_seq_len):
-        #compute the eij for each j in the input sequence
-        
+          e_batch= self.afunc(tgt_hidden_layer[:num_continuing,:,:] ,Uh)
+          e_batch+=padding_knockout[:num_continuing,:]
+          alpha_batch=self.softmax(e_batch)
+          c_batch=torch.sum(alpha_batch*src_hidden_seq[:num_continuing,:,:],dim=1) #result should have dimensions num_continuing by 2*src_hidden_dim 
+          self.decoder( )
 
 
-class EFunc(nn.Module):
-
-
-    #prob: how do we take the softmax of the output of this?
 class AFunc(nn.Module):
     '''
         Input:
-            --tgt_hidden_past: Variable with dimenisons batchsize by 1 by tgt_hidden_dim. Provides the value of the last hidden layer of the decoder in the previous timestep.
-            --Uh: Variable with dimensions batchsize by max_sequence_length by tgt_hidden__dun
+            --tgt_hidden_past: Variable with dimenisons batchsize by 1 by tgt_hidden_dim. Provides the value of the last hidden layer of the decoder in the previous timestep (i.e. timestep i-1 in the paper).
+            --Uh: Variable with dimensions batchsize by max_sequence_length by tgt_hidden_dim
         Returns:
-            -- Variable with dimension batchsize by max_seq_len by 1
+            -- Variable with dimension batchsize by src_max_seq_len.  Its (k,j) entry is the value of e_{ij} for the kth batch.  See pg 3 in  Bahdanau et al. 
     '''
     def __init__(self, tgt_hidden_dim):
        self.v=nn.Linear(tgt_hidden_dim,1)
        self.W=nn.Linear(tgt_hidden_dim,tgt_hidden_dim)
        self.tanh=nn.Tanh()
     def forward(self,tgt_hidden_past, Uh): 
-        return self.v(self.tanh(self.W(tgt_hidden_past)+Uh )) 
+        return self.v(self.tanh(self.W(tgt_hidden_past)+Uh )).squeeze()
