@@ -26,36 +26,39 @@ class EncoderDecoderRNN(nn.Module):
         Outputs:
             --A variable holding the output  of the loss function (cross-entropy).
     '''
-
+    @staticmethod
+    def construct(*largs,**args):
+        return EncoderDecoderRNN(*largs,**args)
+    
     def __init__(self,
-                 in_vocab_size,
-                 out_vocab_size,
-                 in_embedding_dim,
-                 out_embedding_dim,
+                 src_vocab_size,
+                 tgt_vocab_size,
+                 src_embedding_dim,
+                 tgt_embedding_dim,
                  hidden_dim,
                  n_layers=1,
                  bidirectional=False,
                  pre_src_embedding=None,
                  pre_tgt_embedding=None):
         super(EncoderDecoderRNN, self).__init__()
-        self.out_vocab_size = out_vocab_size
+        self.out_vocab_size = tgt_vocab_size
         n_directions = 2 if bidirectional else 1
         self.encoder = basic_rnn.RNN(
-            in_vocab_size,
-            in_embedding_dim,
+            src_vocab_size,
+            src_embedding_dim,
             hidden_dim,
             n_layers,
             bidirectional=bidirectional,
             pretrained_embedding=pre_src_embedding)
         self.decoder = basic_rnn.RNN(
-            out_vocab_size,
-            out_embedding_dim,
+            tgt_vocab_size,
+            tgt_embedding_dim,
             hidden_dim,
             n_directions*n_layers,
             bidirectional=False,
             pretrained_embedding=pre_tgt_embedding)
         self.lin = torch.nn.Linear(
-             hidden_dim, out_vocab_size, bias=False)
+             hidden_dim, tgt_vocab_size, bias=False)
         self.loss = nn.CrossEntropyLoss(ignore_index=0)  #ignore padding
 
     def encode_decode(self, batch):

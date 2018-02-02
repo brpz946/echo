@@ -1,0 +1,15 @@
+a	alpha
+b	beta
+d	delta
+a b	alpha beta
+a d	alpha delta
+b d	beta delta
+b a	beta alpha
+d a	delta alpha
+d b	delta beta
+a a a	alpha alpha alpha
+b b b	beta beta beta
+d d d	delta delta delta
+a b b	alpha beta beta
+a d d	alpha delta delta
+b a d	beta alpha delta

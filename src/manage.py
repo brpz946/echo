@@ -1,4 +1,5 @@
 import logging
+import torch
 
 import reporting
 import data_proc as dp
@@ -20,60 +21,24 @@ class Manager():
         self.model = model
         self.trainer = trainer
 
-    @staticmethod
-    def basic_enc_dec_from_file(path,
-                                lr=0.01,
-                                cuda=False,
-                                report_interval=10,
-                                batchsize=32,
-                                in_dim=100,
-                                out_dim=100,
-                                hidden_dim=100,
-                                l1_name="l1",
-                                l2_name="l2",
-                                testphrase="By the gods!",
-                                loglevel=logging.INFO,
-                                filt=None,
-                                opt='sgd',
-                                pretrained=False,
-                                pre_src_path=None,
-                                pre_tgt_path=None):
-        logging.getLogger().setLevel(loglevel)
-        l1, l2, spairs = lang.read_langsv1(l1_name, l2_name, path, filt)
-        lang.index_words_from_pairs(l1, l2, spairs)
-        dataset = dp.SupervisedTranslationDataset.from_strings(spairs, l1, l2)
-        if pretrained:
-            wv_src = word_vectors.WordVectors.from_file(
-                pre_src_path, word_set=set(l1.word2index.keys()))
-            wv_tgt = word_vectors.WordVectors.from_file(
-                pre_tgt_path, word_set=set(l2.word2index.keys()))
-            src_missing = set(l1.word2index.keys()).difference(
-                set(wv_src.word2vec.keys()))
-            tgt_missing = set(l2.word2index.keys()).difference(
-                set(wv_tgt.word2vec.keys()))
-        enc_dec = ed.EncoderDecoderRNN(
-            l1.n_words,
-            l2.n_words,
-            in_embedding_dim=in_dim,
-            out_embedding_dim=out_dim,
-            hidden_dim=hidden_dim)
-        if cuda:
-            enc_dec = enc_dec.cuda()
-        trainer = tr.Trainer(
-            model=enc_dec,
-            lr=lr,
-            dataset=dataset,
-            batchsize=batchsize,
-            report_interval=report_interval,
-            cuda=cuda,
-            reporter=reporting.TestPhraseReporter(enc_dec, l1, l2, testphrase),
-            opt=opt)
-        return Manager(l1, l2, enc_dec, trainer)
-
-
+    def save(self,path):
+       torch.save(l1,path + "_l1")
+       torch.save(l2,path+ "_l2")
+       torch.save(model,path + "_model")
+       torch.save(trainer,path+ "_trainer")
     
     @staticmethod
-    def basic_search_from_file(path,
+    def load(path):
+        l1=torch.load(path+"_l1")
+        l2=torch.load(path+"_l2")
+        model=torch.load(path+"_model")
+        trainer=torch.load(path+"_trainer")
+        return Manager(l1,l2,model,trainer)
+
+
+
+    @staticmethod
+    def basic_from_file(path,
                                 lr=0.01,
                                 cuda=False,
                                 report_interval=10,
@@ -89,36 +54,46 @@ class Manager():
                                 opt='sgd',
                                 pretrained=False,
                                 pre_src_path=None,
-                                pre_tgt_path=None):
+                                pre_tgt_path=None,
+                                model_constructor=ed.EncoderDecoderRNN.construct):
         logging.getLogger().setLevel(loglevel)
         l1, l2, spairs = lang.read_langsv1(l1_name, l2_name, path, filt)
         lang.index_words_from_pairs(l1, l2, spairs)
         dataset = dp.SupervisedTranslationDataset.from_strings(spairs, l1, l2)
-        if pretrained:
-            wv_src = word_vectors.WordVectors.from_file(
-                pre_src_path, word_set=set(l1.word2index.keys()))
-            wv_tgt = word_vectors.WordVectors.from_file(
-                pre_tgt_path, word_set=set(l2.word2index.keys()))
-            src_missing = set(l1.word2index.keys()).difference(
-                set(wv_src.word2vec.keys()))
-            tgt_missing = set(l2.word2index.keys()).difference(
-                set(wv_tgt.word2vec.keys()))
-        search = search_rnn.SearchRNN(
+        #todo: add pretrained support here 
+         
+         
+        model= model_constructor(
             src_vocab_size=l1.n_words,
             tgt_vocab_size=l2.n_words,
             src_embedding_dim=in_dim,
             tgt_embedding_dim=out_dim,
-            src_hidden_dim=hidden_dim,
-            tgt_hidden_dim=hidden_dim)
+            hidden_dim=hidden_dim)
         if cuda:
-            enc_dec = enc_dec.cuda()
+            model = model.cuda()
         trainer = tr.Trainer(
-            model=search,
+            model=model,
             lr=lr,
             dataset=dataset,
             batchsize=batchsize,
             report_interval=report_interval,
             cuda=cuda,
-            reporter=reporting.TestPhraseReporter(search, l1, l2, testphrase),
+            reporter=reporting.TestPhraseReporter(model, l1, l2, testphrase),
             opt=opt)
-        return Manager(l1, l2, search, trainer)
+        return Manager(l1, l2, model, trainer)
+
+
+
+        
+    
+    @staticmethod
+    def basic_enc_dec_from_file(*largs,**kwargs):
+        kwargs["model_constructor"]=ed.EncoderDecoderRNN.construct 
+        return Manager.basic_from_file(*largs,**kwargs)
+
+    @staticmethod
+    def basic_search_from_file(**args):
+        args["model_constructor"]=search_rnn.SearchRNN.construct
+        return Manager.basic_from_file(**args)
+       
+    
