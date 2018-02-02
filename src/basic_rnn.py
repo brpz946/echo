@@ -31,6 +31,7 @@ class RNN(nn.Module):
         inputs:
             -batch: a translation batch of input data 
             -code: initial hidden units.  If this RNN is a decoder, these are the hidden units  from the last layer of the encoder.  Should be 3d with dimensions n_layers by batch_size by hidden_dim
+            -extra_input: should have dimension batchsize by seqlength by extra_input_dim
         outputs:
             -the predictions at every time step in packed form (main output of decoder RNNs)
             -final hidden units of each layer (main output of encoder RNNs)

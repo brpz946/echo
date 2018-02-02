@@ -432,13 +432,63 @@ class WordVectorTests(unittest.TestCase):
         self.assertFalse(pt.weights.requires_grad)
         self.assertTrue(pt.missing.requires_grad)
 
-class SearchRNNTests(unittest.TestCase):
+class SearchRNNFastTests(unittest.TestCase):
     def test_simp(self):
         sch=search_rnn.SearchRNN(5,5,2,3,6,7)
         src_batch=dp.TranslationBatch( Variable(torch.LongTensor([[4,3,2],[1,0,0]])) ,[3,1])
         tgt_batch=dp.TranslationBatch(Variable(torch.LongTensor([[3,4,0],[3,3,3]])) ,[2,3])
         batch=dp.SupervisedTranslationBatch(src_batch,tgt_batch,torch.LongTensor([0,1])  )
         sch(batch)
+
+
+class SearchRNNSlowTests(unittest.TestCase):
+    def setUp(self):
+        l1, l2, spairs = lang.read_langsv1('eng', 'fra',
+                                           '../data/eng-fra_tut/eng-fra.txt')
+        lang.index_words_from_pairs(l1, l2, spairs)
+        self.ds = dp.SupervisedTranslationDataset.from_strings(spairs, l1, l2)
+        self.model = search_rnn.SearchRNN(
+            src_vocab_size=l1.n_words,
+            tgt_vocab_size=l2.n_words,
+            src_embedding_dim=100,
+            tgt_embedding_dim=100,
+            src_hidden_dim=100,
+            tgt_hidden_dim=100,
+            n_layers=2)
+
+
+    def test_search_train_step(self):
+        '''
+       training a multi-layer encoder-decoder for one step should change its parameters.
+       '''
+        trainer = tr.Trainer(self.model, 0.01, self.ds, 32, 1, reporter=None)
+        before = []
+        names=[]
+        beforeshapes = []
+        for name,param in self.model.named_parameters():
+          #  print("parameter: ",name)
+            names.append(name)
+            before.append(param.data.tolist())
+            beforeshapes.append(param.shape)
+        trainer.train(1)
+        for i, param in enumerate(self.model.parameters()):
+         #   print("comapring parameter ",names[i])
+            self.assertEqual(param.shape, beforeshapes[i])
+            self.assertNotEqual(param.data.tolist(), before[i])
+
+class MoreSearchRNNTests(unittest.TestCase):
+    def test_search_basic_run(self):
+        '''The model should learn to translate when the dataset consists of one phrase u '''
+
+        man = manage.Manager.basic_search_from_file(
+            "../data/by_the_gods.txt", loglevel=logging.WARNING )
+        man.trainer.train(100)
+        dexsamp = man.l1.sentence2dex("by the gods !")
+        pred = man.model.predict(dexsamp)
+        translation = man.l2.dex2sentence(pred)
+        self.assertEquals(translation, "by the gods !")
+
+
 if __name__ == '__main__':
     lang_test_suite = unittest.defaultTestLoader.loadTestsFromTestCase(
         LangTest)
@@ -456,7 +506,9 @@ if __name__ == '__main__':
         MultiLayerTrainerTest)
     bitests = unittest.defaultTestLoader.loadTestsFromTestCase(BiTrainerTests)
     wvtests = unittest.defaultTestLoader.loadTestsFromTestCase(WordVectorTests)
-    schtests=  unittest.defaultTestLoader.loadTestsFromTestCase(SearchRNNTests)
+    schtests=  unittest.defaultTestLoader.loadTestsFromTestCase(SearchRNNFastTests)
+    schslowtests= unittest.defaultTestLoader.loadTestsFromTestCase(SearchRNNSlowTests)
+    schmore=  unittest.defaultTestLoader.loadTestsFromTestCase(MoreSearchRNNTests)
     fast = unittest.TestSuite()
     fast.addTest(lang_test_suite)
     fast.addTest(lang_util_test_suite)
@@ -470,4 +522,6 @@ if __name__ == '__main__':
     #unittest.TextTestRunner().run(bitests) #slow
     #unittest.TextTestRunner().run(multitests) #slow
     #unittest.TextTestRunner().run(wvtests) #slow
-    unittest.TextTestRunner().run(schtests)
+    #unittest.TextTestRunner().run(schtests)
+    #unittest.TextTestRunner().run(schslowtests)
+    unittest.TextTestRunner().run(schmore)
