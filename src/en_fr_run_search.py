@@ -2,7 +2,7 @@ import logging
 import lang
 import manage
 man = manage.Manager.basic_search_from_file(
-    "../data/eng-fra_tut/eng-fra.txt",
+    path="../data/eng-fra_tut/eng-fra.txt",
     report_interval=1000,
     l1_name="eng",
     l2_name="fr",
