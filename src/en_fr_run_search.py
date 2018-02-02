@@ -1,7 +1,7 @@
 import logging
 import lang
 import manage
-man = manage.Manager.basic_enc_dec_from_file(
+man = manage.Manager.basic_search_from_file(
     "../data/eng-fra_tut/eng-fra.txt",
     report_interval=1000,
     l1_name="eng",
