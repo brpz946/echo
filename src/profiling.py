@@ -39,15 +39,15 @@ class Profiler:
             in_embedding_dim=100,
             out_embedding_dim=100,
             hidden_dim=100,
-            n_layers=2)
+            n_layers=1)
         self.profile(model, out_path)
 
     def profile_search_cpu(self,out_path="../profiler_results/search_cpu"):
         self.setup()
-        model=search_rnn.SearchRNN(src_vocab_size=self.l1.n_words,tgt_vocab_size=self.l2.n_words,src_embedding_dim=100,tgt_embedding_dim=100,src_hidden_dim=100,tgt_hidden_dim=100,n_layers=2)
+        model=search_rnn.SearchRNN(src_vocab_size=self.l1.n_words,tgt_vocab_size=self.l2.n_words,src_embedding_dim=100,tgt_embedding_dim=100,src_hidden_dim=100,tgt_hidden_dim=100,n_layers=1)
         self.profile(model,out_path)
 
 if __name__ == "__main__":
     profiler = Profiler()
-    profiler.profile_search_cpu() 
-    #profiler.profile_enc_dec_cpu()
+    #profiler.profile_search_cpu() 
+    profiler.profile_enc_dec_cpu()
