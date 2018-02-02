@@ -39,17 +39,21 @@ class TestPhraseReporter(Reporter):
     
     '''
 
-    def __init__(self, model, l1, l2, phrase):
+    def __init__(self, model, l1, l2, phrases):
         self.model = model
         self.l1 = l1
         self.l2 = l2
-        self.phrase = phrase
+        if isinstance(phrases,str):
+            phrases=[phrases]
+        self.phrases = phrases
 
     def report(self, starttime, curiter, totaliter, loss):
         super().report(starttime, curiter, totaliter, loss)
-        dexsamp = self.l1.sentence2dex(self.phrase)
-        pred = self.model.predict(dexsamp)
-        logging.debug("Test phrase: %s", self.phrase)
-        logging.debug("Code:%s", dexsamp)
-        logging.debug("Mapped code:%s", pred)
-        logging.debug("Translation:%s", self.l2.dex2sentence(pred))
+        for phrase in self.phrases:
+            dexsamp = self.l1.sentence2dex(phrase)
+            pred = self.model.predict(dexsamp)
+            logging.info("Test phrase: %s", phrase)
+            #logging.info("Code:%s", dexsamp)
+            #logging.info("Mapped code:%s", pred)
+            logging.info("Translation:%s", self.l2.dex2sentence(pred))
+

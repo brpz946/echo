@@ -12,6 +12,13 @@ class SearchRNN(nn.Module):
     '''
         Based on 'Neural Machine Translation by Jointly Learning to Align and Translate' by Bahdanau, Cho, and Bengio 
     '''
+    @staticmethod
+    def construct(**args):
+        if "hidden_dim" in args:
+            args["src_hidden_dim"]=args["hidden_dim"]
+            args["tgt_hidden_dim"]=args["hidden_dim"]
+            del args["hidden_dim"]
+        return SearchRNN(**args)
 
     def __init__(self,
                  src_vocab_size,
@@ -67,7 +74,7 @@ class SearchRNN(nn.Module):
                     cur_tgt, cur_tgt_hidden_layer[:num_continuing,:,:].transpose(0,1 ), extra_input=c_batch)
             cur_tgt_hidden_layer= cur_tgt_hidden_layer.transpose(0,1)
             # Need to mess around with tranposes to use Afunc.  I keep batchfirst since afunc needs to use a view to combine the n_layers and tgt_hidden_dim dimensions
-            
+           # import pdb;  pdb.set_trace()
             hidden_out, _ = rnn.pad_packed_sequence(hidden_out, batch_first=True)  
             #hidden_out should have dimensions num_continuing by 1 by tgt_hidden_dim
             return hidden_out, cur_tgt_hidden_layer
@@ -85,7 +92,7 @@ class SearchRNN(nn.Module):
         Uh = self.U(
             src_hidden_seq
         )  #has dimension batchsize by src_max_seq_length by tgt_hidden_dim
-        cur_tgt_hidden_layer = Variable(torch.zeros(batchsize, self.decoder.n_layers, self.decoder.hidden_dim))
+        cur_tgt_hidden_layer = Variable(src_hidden_seq.data.new(batchsize, self.decoder.n_layers, self.decoder.hidden_dim).zero_() )
 
         padding_knockout = Variable(src_hidden_seq.data.new(batchsize, src_max_seq_len,
                                               1).zero_())
@@ -95,7 +102,7 @@ class SearchRNN(nn.Module):
 
         num_continuing = batchsize  # at the current timestep, the number of sequences that have yet to terminate
         decoder_output = Variable(
-            torch.zeros(batchsize, tgt_max_seq_len, self.tgt_hidden_dim))
+            src_hidden_seq.data.new(batchsize, tgt_max_seq_len, self.tgt_hidden_dim).zero_())
         for i in range(tgt_max_seq_len):
             while batch.tgt.lengths[num_continuing - 1] <= i:
                 num_continuing -= 1
@@ -103,12 +110,12 @@ class SearchRNN(nn.Module):
             cur_tgt =batch.tgt.first_k_at_t(k=num_continuing, t=i)
             hidden_out, cur_tgt_hidden_layer  =  self.advance(num_continuing=num_continuing, cur_tgt_hidden_layer= cur_tgt_hidden_layer, src_hidden_seq=src_hidden_seq, cur_tgt=cur_tgt,Uh=Uh, padding_knockout=padding_knockout  )
                         
-            decoder_output[:num_continuing, i, :] = hidden_out
+            decoder_output[:num_continuing, i, :] = hidden_out.view(num_continuing,self.tgt_hidden_dim)
         out = self.lin_out(decoder_output)  
         # out should have dimension batch_size by tgt_max_seq_len by tgt_vocab_size
         goal = torch.cat(
             (batch.tgt.seqs[:, 1:],
-             Variable(batch.tgt.seqs.data.new(batchsize, 1).fill_(0))),
+             Variable(batch.tgt.seqs.data.new(batchsize, 1).zero_())),
             1)  #prediction is staggered.  at sequence element t we predict t+1
         return self.loss(out.view(-1,self.tgt_vocab_size), goal.view(-1))
 
@@ -124,7 +131,7 @@ class SearchRNN(nn.Module):
         Uh = self.U(
             src_hidden_seq
         )
-        cur_tgt_hidden_layer = Variable(torch.zeros(1, self.decoder.n_layers, self.decoder.hidden_dim))
+        cur_tgt_hidden_layer = Variable(src_hidden_seq.data.new(1, self.decoder.n_layers, self.decoder.hidden_dim).zero_())
         num_continuing=1
         
         index = Variable(torch.LongTensor([lang.SOS_TOKEN]).view(1, 1))
@@ -168,6 +175,6 @@ class AFunc(nn.Module):
     def forward(self, tgt_hidden_past, Uh):
         #import pdb; pdb.set_trace()
         if self.n_layers>1: #if we are using more than one hidden layer in the decoder, need to concatinate their hidden states to feed to the attention function
-            tgt_hidden_past.contiguous()
+            tgt_hidden_past=tgt_hidden_past.contiguous()
             tgt_hidden_past=tgt_hidden_past.view(-1,1,self.n_layers*self.tgt_hidden_dim)
         return self.v(self.tanh(self.W(tgt_hidden_past) + Uh))

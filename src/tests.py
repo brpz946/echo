@@ -234,8 +234,8 @@ class MultiLayerTrainerTest(unittest.TestCase):
         self.model = ed.EncoderDecoderRNN(
             l1.n_words,
             l2.n_words,
-            in_embedding_dim=100,
-            out_embedding_dim=100,
+            src_embedding_dim=100,
+            tgt_embedding_dim=100,
             hidden_dim=100,
             n_layers=2)
 
@@ -264,8 +264,8 @@ class BiTrainerTests(unittest.TestCase):
         self.model = ed.EncoderDecoderRNN(
             l1.n_words,
             l2.n_words,
-            in_embedding_dim=100,
-            out_embedding_dim=100,
+            src_embedding_dim=100,
+            tgt_embedding_dim=100,
             hidden_dim=100,
             n_layers=1,
             bidirectional=True)
@@ -295,8 +295,8 @@ class Trainer_Tests(unittest.TestCase):
         self.model = ed.EncoderDecoderRNN(
             l1.n_words,
             l2.n_words,
-            in_embedding_dim=100,
-            out_embedding_dim=100,
+            src_embedding_dim=100,
+            tgt_embedding_dim=100,
             hidden_dim=100)
 
     def test_train_step(self):
@@ -352,7 +352,7 @@ class ManagerTestsPretrained(unittest.TestCase):
             print('skipping GPU test for lack of cuda')
             return
         man = manage.Manager.basic_enc_dec_from_file(
-            "../data/by_the_gods_dustballs.txt",
+            "../data/testing/by_the_gods_dustballs.txt",
             loglevel=logging.WARNING,
             pretrained=True,
             pre_src_path='../data/fastText_word_vectors/wiki.en.vec',
@@ -367,7 +367,7 @@ class ManagerTestsPretrained(unittest.TestCase):
     def test_basic_run_pretrained(self):
         '''The model should learn to translate when the dataset consists of one phrase when it uses pretrained word vectors  '''
         man = manage.Manager.basic_enc_dec_from_file(
-            "../data/by_the_gods_dustballs.txt",
+            "../data/testing/by_the_gods_dustballs.txt",
             loglevel=logging.WARNING,
             pretrained=True,
             pre_src_path='../data/fastText_word_vectors/wiki.en.vec',
@@ -383,7 +383,7 @@ class ManagerTests(unittest.TestCase):
     def test_basic_run(self):
         '''The model should learn to translate when the dataset consists of one phrase '''
         man = manage.Manager.basic_enc_dec_from_file(
-            "../data/by_the_gods.txt", loglevel=logging.WARNING)
+            "../data/testing/by_the_gods.txt", loglevel=logging.WARNING)
         man.trainer.train(100)
         dexsamp = man.l1.sentence2dex("by the gods !")
         pred = man.model.predict(dexsamp)
@@ -397,7 +397,7 @@ class ManagerTests(unittest.TestCase):
             return
 
         man = manage.Manager.basic_enc_dec_from_file(
-            "../data/by_the_gods.txt", loglevel=logging.WARNING, cuda=True)
+            "../data/testing/by_the_gods.txt", loglevel=logging.WARNING, cuda=True)
         man.trainer.train(100)
         dexsamp = man.l1.sentence2dex("by the gods !")
         pred = man.model.predict(dexsamp)
@@ -466,28 +466,53 @@ class SearchRNNSlowTests(unittest.TestCase):
         names=[]
         beforeshapes = []
         for name,param in self.model.named_parameters():
-          #  print("parameter: ",name)
+            print("parameter: ",name)
             names.append(name)
             before.append(param.data.tolist())
             beforeshapes.append(param.shape)
         trainer.train(1)
         for i, param in enumerate(self.model.parameters()):
-         #   print("comapring parameter ",names[i])
+            print("comapring parameter ",names[i])
             self.assertEqual(param.shape, beforeshapes[i])
             self.assertNotEqual(param.data.tolist(), before[i])
 
 class MoreSearchRNNTests(unittest.TestCase):
+    # def test_search_basic_run(self):
+        # '''The model should learn to translate when the dataset consists of one phrase u '''
+
+        # man = manage.Manager.basic_search_from_file(
+            # "../data/testing/by_the_gods.txt", loglevel=logging.WARNING )
+        # man.trainer.train(100)
+        # dexsamp = man.l1.sentence2dex("by the gods !")
+        # pred = man.model.predict(dexsamp)
+        # translation = man.l2.dex2sentence(pred)
+        # self.assertEquals(translation, "by the gods !")
+
+
+
     def test_search_basic_run(self):
-        '''The model should learn to translate when the dataset consists of one phrase u '''
+        '''The model should learn to translate when the dataset consists of one phrase u on the gpu '''
 
         man = manage.Manager.basic_search_from_file(
-            "../data/by_the_gods.txt", loglevel=logging.WARNING )
+            path="../data/testing/by_the_gods.txt", loglevel=logging.WARNING,cuda=True )
         man.trainer.train(100)
         dexsamp = man.l1.sentence2dex("by the gods !")
         pred = man.model.predict(dexsamp)
         translation = man.l2.dex2sentence(pred)
         self.assertEquals(translation, "by the gods !")
 
+
+
+#    def test_search_basic_run2(self):
+#        '''The model should learn to translate when the dataset consists of a few simple phrases '''
+#
+#        man = manage.Manager.basic_search_from_file(
+#            "../data/testing/alpha_beta.txt", loglevel=logging.INFO,testphrase=["a","b", "d", "a b", "b d", "d a", "d b a"], opt= 'rmsprop', batchsize=3 )
+#        man.trainer.train(10000)
+#        dexsamp = man.l1.sentence2dex("d b a")
+#        pred = man.model.predict(dexsamp)
+#        translation = man.l2.dex2sentence(pred)
+#        self.assertEquals(translation, "delta beta alpha")
 
 if __name__ == '__main__':
     lang_test_suite = unittest.defaultTestLoader.loadTestsFromTestCase(
@@ -512,16 +537,16 @@ if __name__ == '__main__':
     fast = unittest.TestSuite()
     fast.addTest(lang_test_suite)
     fast.addTest(lang_util_test_suite)
-    #unittest.TextTestRunner().run(fast)
-    #unittest.TextTestRunner().run(enc)
-    #unittest.TextTestRunner().run(dptest)
-    #unittest.TextTestRunner().run(trtest) #slow
-    #unittest.TextTestRunner().run(pred)
-    #unittest.TextTestRunner().run(mantests)
-    #unittest.TextTestRunner().run(premantests) #slow
-    #unittest.TextTestRunner().run(bitests) #slow
-    #unittest.TextTestRunner().run(multitests) #slow
-    #unittest.TextTestRunner().run(wvtests) #slow
+    unittest.TextTestRunner().run(fast)
+    unittest.TextTestRunner().run(enc)
+    unittest.TextTestRunner().run(dptest)
+    unittest.TextTestRunner().run(trtest) #slow
+    unittest.TextTestRunner().run(pred)
+    unittest.TextTestRunner().run(mantests)
+    unittest.TextTestRunner().run(premantests) #slow
+    unittest.TextTestRunner().run(bitests) #slow
+    unittest.TextTestRunner().run(multitests) #slow
+    unittest.TextTestRunner().run(wvtests) #slow
     #unittest.TextTestRunner().run(schtests)
     #unittest.TextTestRunner().run(schslowtests)
     unittest.TextTestRunner().run(schmore)
