@@ -7,6 +7,7 @@ def train_step(batch, model, optimizer, cuda=False):
     optimizer.zero_grad()
     if cuda:
         batch = batch.cuda()
+   # import pdb; pdb.set_trace()
     loss = model(batch)
     loss.backward()
     optimizer.step()

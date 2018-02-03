@@ -1,7 +1,9 @@
 import random
 import copy
+import math
 import torch
 from torch.autograd import Variable
+
 
 import lang
 import util
@@ -137,3 +139,18 @@ class SupervisedTranslationDataset:
             ] for j in [0, 1]]
             batches.append(SupervisedTranslationBatch.from_list(seqs))
         return batches
+    
+    def split(self, prop):
+        '''
+        Extracts a speicified proprtion of the data and returns it in head.  After this function can been called on a dataset, it contains all data not returned in head.
+        Args:
+            --prop: a number between 0 and 1
+            --shuffle: a boolean.   Whether to suffle the data before extrating head.
+        Returns:
+            --Head: A SupervisedTranslationDataset consisting of  proportion prop of the data
+        '''
+        random.shuffle(self.lseq)
+        head_size=math.floor(prop*len(lseq))
+        head=lseq[:head_size]
+        lseq=lseq[head_size:]
+        return head

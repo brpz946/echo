@@ -15,7 +15,7 @@ import search_rnn
 import manage
 import word_vectors as wv
 import basic_rnn
-
+import predictor as pr
 class LangTest(unittest.TestCase):
     def test_add_word(self):
         '''Words added to a language should appear in word2index, word2count, index2word '''
@@ -514,6 +514,35 @@ class MoreSearchRNNTests(unittest.TestCase):
 #        translation = man.l2.dex2sentence(pred)
 #        self.assertEquals(translation, "delta beta alpha")
 
+
+class PredictorTests(unittest.TestCase):
+    def test_beam_search(self):
+        def process_src(src):
+            return []
+        def advance_tgt(src_state, first,cur_state, index):
+            num_seqs=index.shape[0]
+            probs=Variable(torch.Tensor(num_seqs, 6).fill_(0))
+            for i in range(num_seqs):
+                if index.data[i]==1:
+                    probs[i,:]=Variable(torch.Tensor([0,0,0,0.6,0.4,0]) )
+                elif index.data[i]==3:
+                    probs[i,:]=Variable(torch.Tensor([0,0,0.9,0,0,0.1]) )
+                elif index.data[i]==4:
+                    probs[i,:]=Variable(torch.Tensor([0,0,1,0,0,0]) )
+                elif index.data[i]==5:
+                    probs[i,:]=Variable(torch.Tensor([0,0,0,0,0,1]) )
+                else:
+                    self.assertEqual(0,1)
+            stateout=Variable(torch.Tensor(num_seqs,1))
+            return probs, stateout
+
+        predictor=pr.BeamPredictor(process_src,advance_tgt,r=1,max_seq_len=20, tgt_vocab_size=6)
+        seqs,probs= predictor.predict(src_seq=[],k=2,w=2,cuda=False)  
+        self.assertEqual(seqs[0],[1,4,2])
+        self.assertEqual(seqs[1],[1,3,2])
+        self.assertAlmostEquals(probs[0],0.4)
+        self.assertAlmostEqual(probs[1],0.54)
+
 if __name__ == '__main__':
     lang_test_suite = unittest.defaultTestLoader.loadTestsFromTestCase(
         LangTest)
@@ -534,19 +563,22 @@ if __name__ == '__main__':
     schtests=  unittest.defaultTestLoader.loadTestsFromTestCase(SearchRNNFastTests)
     schslowtests= unittest.defaultTestLoader.loadTestsFromTestCase(SearchRNNSlowTests)
     schmore=  unittest.defaultTestLoader.loadTestsFromTestCase(MoreSearchRNNTests)
+    beam=  unittest.defaultTestLoader.loadTestsFromTestCase(PredictorTests)
     fast = unittest.TestSuite()
     fast.addTest(lang_test_suite)
     fast.addTest(lang_util_test_suite)
-    unittest.TextTestRunner().run(fast)
-    unittest.TextTestRunner().run(enc)
-    unittest.TextTestRunner().run(dptest)
-    unittest.TextTestRunner().run(trtest) #slow
-    unittest.TextTestRunner().run(pred)
-    unittest.TextTestRunner().run(mantests)
-    unittest.TextTestRunner().run(premantests) #slow
-    unittest.TextTestRunner().run(bitests) #slow
-    unittest.TextTestRunner().run(multitests) #slow
-    unittest.TextTestRunner().run(wvtests) #slow
-    #unittest.TextTestRunner().run(schtests)
-    #unittest.TextTestRunner().run(schslowtests)
-    unittest.TextTestRunner().run(schmore)
+    # unittest.TextTestRunner().run(fast)
+    # unittest.TextTestRunner().run(enc)
+    # unittest.TextTestRunner().run(dptest)
+    # unittest.TextTestRunner().run(trtest) #slow
+    # unittest.TextTestRunner().run(pred)
+    # unittest.TextTestRunner().run(mantests)
+    # unittest.TextTestRunner().run(premantests) #slow
+    # unittest.TextTestRunner().run(bitests) #slow
+    # unittest.TextTestRunner().run(multitests) #slow
+    # unittest.TextTestRunner().run(wvtests) #slow
+    # #unittest.TextTestRunner().run(schtests)
+    # #unittest.TextTestRunner().run(schslowtests)
+    # unittest.TextTestRunner().run(schmore)
+    unittest.TextTestRunner().run(beam)
+

@@ -39,7 +39,7 @@ class Profiler:
             in_embedding_dim=100,
             out_embedding_dim=100,
             hidden_dim=100,
-            n_layers=1)
+            n_layers=2)
         self.profile(model, out_path)
 
     def profile_search_cpu(self,out_path="../profiler_results/search_cpu"):
