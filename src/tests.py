@@ -541,7 +541,7 @@ class PredictorTests(unittest.TestCase):
             return probs, stateout
 
         predictor=pr.BeamPredictor(process_src,advance_tgt,r=1,max_seq_len=20, tgt_vocab_size=6)
-        seqs,probs= predictor.predict(src_seq=[],k=2,w=2,cuda=False)  
+        seqs,probs= predictor.predict(src_seq=[],k=2,w=2)  
         self.assertEqual(seqs[0],[1,4,2])
         self.assertEqual(seqs[1],[1,3,2])
         self.assertAlmostEquals(probs[0],math.log(0.4))
@@ -579,16 +579,38 @@ class MorePredictorTests(unittest.TestCase):
        # # import pdb; pdb.set_trace()
         # self.assertEqual(oldpred,newpred[0] )
 
-    def test_search_beam_consistancy(self):
-        '''
-        BeamPredictor with beam width 1 should produce the same result as the old greedy prediction function when applied to SearchRNN
-        '''
-        beam=self.model2.beam_predictor()
-        oldpred= self.model2.predict([lang.SOS_TOKEN,5,lang.EOS_TOKEN])
-        newpred=beam.predict([lang.SOS_TOKEN,5,lang.EOS_TOKEN],k=1,w=1 )[0] 
-      #  import pdb; pdb.set_trace()
-        self.assertEqual(oldpred,newpred[0] )
+    # def test_search_beam_consistancy(self):
+        # '''
+        # BeamPredictor with beam width 1 should produce the same result as the old greedy prediction function when applied to SearchRNN
+        # '''
+        # beam=self.model2.beam_predictor()
+        # oldpred= self.model2.predict([lang.SOS_TOKEN,5,lang.EOS_TOKEN])
+        # newpred=beam.predict([lang.SOS_TOKEN,5,lang.EOS_TOKEN],k=1,w=1 )[0] 
+      # #  import pdb; pdb.set_trace()
+        # self.assertEqual(oldpred,newpred[0] )
     
+    # def test_search_beam_consistancy_gpu(self):
+        # '''
+        # BeamPredictor with beam width 1 should produce the same result as the old greedy prediction function when applied to SearchRNN on the GPU
+        # '''
+        # self.model2=self.model2.cuda()
+        # beam=self.model2.beam_predictor()
+        # oldpred= self.model2.predict([lang.SOS_TOKEN,5,lang.EOS_TOKEN])
+        # newpred=beam.predict([lang.SOS_TOKEN,5,lang.EOS_TOKEN],k=1,w=1 )[0] 
+      # #  import pdb; pdb.set_trace()
+        # self.assertEqual(oldpred,newpred[0] )
+    
+    def test_enc_dec_beam_consistancy_gpu(self):
+        '''
+        BeamPredictor with beam width 1 should produce the same result as the old greedy prediction function when used on the gpu
+        '''
+        self.model=self.model.cuda()
+        beam=self.model.beam_predictor()
+        oldpred= self.model.predict([lang.SOS_TOKEN,5,lang.EOS_TOKEN])
+        newpred=beam.predict([lang.SOS_TOKEN,5,lang.EOS_TOKEN],k=1,w=1 )[0] 
+       # import pdb; pdb.set_trace()
+        self.assertEqual(oldpred,newpred[0] )
+
 
 
 if __name__ == '__main__':

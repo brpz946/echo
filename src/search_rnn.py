@@ -163,6 +163,8 @@ class SearchRNN(nn.Module):
             src_length=len(src_seq)
         src_length= [src_length]
         in_seq = dp.TranslationBatch(Variable(torch.LongTensor(src_seq)).view(1, -1), src_length)
+        if cuda:
+            in_seq= in_seq.cuda()
         src_hidden_seq, _ = self.encoder(in_seq)
         src_hidden_seq, _ = rnn.pad_packed_sequence(src_hidden_seq, batch_first=True) #dimensions batch, 1,  2*src_hidden_dim
         Uh = self.U(src_hidden_seq) #dimensions 1, n_layers* tgt_hidden_dim
@@ -187,8 +189,10 @@ class SearchRNN(nn.Module):
         logprobs=F.log_softmax(weights,dim=1)
         out_state= cur_tgt_hidden_layer.view(width, self.decoder.n_layers*self.decoder.hidden_dim)
         return logprobs,out_state
+
     def beam_predictor(self):
-       return predictor.BeamPredictor(self.process_src,self.advance_tgt,r=self.decoder.n_layers*self.decoder.hidden_dim,tgt_vocab_size=self.tgt_vocab_size,max_seq_len=30) 
+       cuda = next(self.parameters()).is_cuda
+       return predictor.BeamPredictor(self.process_src,self.advance_tgt,r=self.decoder.n_layers*self.decoder.hidden_dim,tgt_vocab_size=self.tgt_vocab_size,max_seq_len=30,cuda=cuda) 
     
 class AFunc(nn.Module):
     '''

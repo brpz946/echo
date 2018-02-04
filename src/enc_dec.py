@@ -158,5 +158,6 @@ class EncoderDecoderRNN(nn.Module):
         hidden=hidden.view(width,self.decoder.n_layers*self.decoder.n_directions*self.decoder.hidden_dim)
         return  logprobs, hidden 
     def beam_predictor(self):
-       return predictor.BeamPredictor(self.process_src,self.advance_tgt,r=self.decoder.n_layers*self.decoder.n_directions*self.decoder.hidden_dim,tgt_vocab_size=self.out_vocab_size,max_seq_len=30) 
+       cuda = next(self.parameters()).is_cuda
+       return predictor.BeamPredictor(self.process_src,self.advance_tgt,r=self.decoder.n_layers*self.decoder.n_directions*self.decoder.hidden_dim,tgt_vocab_size=self.out_vocab_size,max_seq_len=30,cuda=cuda) 
     

@@ -27,23 +27,24 @@ class BeamPredictor:
             --r: Length of the rows of rows of cur_state.  Model-dependent. 
             --max_seq_len: The maximum sequence length that will be explored during the beam search.
             --tgt_vocab_size: size of the target vocabulary
+            -cuda: Whether to use cuda.
     '''
-    def __init__(self,process_src, advance_tgt,r,tgt_vocab_size,max_seq_len=30): 
+    def __init__(self,process_src, advance_tgt,r,tgt_vocab_size,max_seq_len=30,cuda=False): 
         self.process_src=process_src
         self.advance_tgt=advance_tgt
         self.r=r 
         self.tgt_vocab_size=tgt_vocab_size
         self.max_tgt_seq_len=max_seq_len
+        self.cuda=cuda
         
         
-    def predict(self, src_seq, k, w, cuda=False):        
+    def predict(self, src_seq, k, w ):        
         '''
         Carry out a beam search.
         Args:
             --src_seq:  a list containing a sequence of input values
             --k: The number of predictions to output.
             --w: The beam width
-            --cuda: whether to use cuda
         Returns:
             -A list of k lists, the predictions produced by the model for the input src_vals
         '''
@@ -52,7 +53,7 @@ class BeamPredictor:
         incoming_index=Variable(torch.LongTensor([lang.SOS_TOKEN]))
         logprobs=Variable(torch.Tensor(1,1).fill_(0))
         history=[[ lang.SOS_TOKEN  ]]
-        if cuda:
+        if self.cuda:
             incoming_index=incoming_index.cuda()
             logprobs=logprobs.cuda()
             cur_state=cur_state.cuda()
@@ -90,7 +91,7 @@ class BeamPredictor:
                     best_terminated.try_add( history[rows.data[p]] + [cols.data[p]], top_logprobs.data[p] )
                     s+=1
                 else:
-                    new_cur_state[q,:]=states[rows[p],:]                           
+                    new_cur_state[q,:]=states[rows[p],:].squeeze()                           
                     new_incoming_index[q]=cols[p]
                     new_logprobs[q,0]=top_logprobs[p]
                     new_history[q]=history[rows.data[p]]+  [cols.data[p]] #cannot use append here since it works in place
