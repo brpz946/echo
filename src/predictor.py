@@ -22,7 +22,7 @@ class BeamPredictor:
                    --cur_state: A FloatTensor variable. Holds state values for each sequence currently in the beam. Should either be empty or  have dimensions w by r, where w is less than or equal to beam width and r is model-dependent.
                    --index: A LongTensor variable with dimension w, where w is less than or equal to beam width.  Stores the indexes currently being added for each sequence in the beam.
                 Returns:
-                    --A w by v LongTensor variable, where v is the tgt vocabulary size.  Entry (i,k) holds the probability predicted by the model that index k will be the next to be added to the sequence represented by row i. 
+                    --A w by v LongTensor variable, where v is the tgt vocabulary size.  Entry (i,k) holds the incremental log probability (negative loss) predicted by the model if index k is the next to be added to the sequence represented by row i. 
                     --A w by r FloatTensor.  Row i is the next state predicted by the model for sequence i.
             --r: Length of the rows of rows of cur_state.  Model-dependent. 
             --max_seq_len: The maximum sequence length that will be explored during the beam search.
@@ -36,7 +36,7 @@ class BeamPredictor:
         self.max_tgt_seq_len=max_seq_len
         
         
-    def predict(self, src_seq, k, w, cuda):        
+    def predict(self, src_seq, k, w, cuda=False):        
         '''
         Carry out a beam search.
         Args:
@@ -50,20 +50,20 @@ class BeamPredictor:
         src_state=self.process_src(src_seq) #src_state is used only by advance_output.  Thus, its contents need only be acceptable to that function. 
         cur_state=Variable(torch.Tensor(0).fill_(0))
         incoming_index=Variable(torch.LongTensor([lang.SOS_TOKEN]))
-        probs=Variable(torch.Tensor(1,1).fill_(1))
+        logprobs=Variable(torch.Tensor(1,1).fill_(0))
         history=[[ lang.SOS_TOKEN  ]]
         if cuda:
             incoming_index=incoming_index.cuda()
-            probs=probs.cuda()
+            logprobs=logprobs.cuda()
             cur_state=cur_state.cuda()
 
         best_terminated=FixedHeap(k) 
         cur_depth=1
         
         while True:
-            [step_probs,states]=self.advance_tgt(src_state=src_state,first=(cur_depth==1),cur_state=cur_state,index=incoming_index)
-            overall_probs=step_probs*probs #broadcast
-            [top_probs, top_inds]=torch.topk(overall_probs.view(-1),k=k+w,sorted=True)
+            [step_logprobs,states]=self.advance_tgt(src_state=src_state,first=(cur_depth==1),cur_state=cur_state,index=incoming_index)
+            overall_logprobs=step_logprobs+ logprobs #broadcast
+            [top_logprobs, top_inds]=torch.topk(overall_logprobs.view(-1),k=k+w,sorted=True)
             rows=top_inds.div(self.tgt_vocab_size)
             cols=top_inds.remainder(self.tgt_vocab_size) 
             
@@ -71,44 +71,49 @@ class BeamPredictor:
             if cur_depth >= self.max_tgt_seq_len:
                 z=0
                 while best_terminated.cur_size<k:
-                    best_terminated.try_add( history[rows.data[z]] + [cols.data[z]], top_probs.data[z]  )
+                    best_terminated.try_add( history[rows.data[z]] + [cols.data[z]] + [lang.EOS_TOKEN], top_logprobs.data[z]  )
                     z+=1
                 break
 
-            p=0
-            q=0  
+            p=0 #current index in old sequences
+            q=0 #current index in new  sequences being created for next timestep
+            s=0 #number of terminated seqiences found so far
             new_cur_state=Variable(cur_state.data.new(w,self.r).fill_(0))
             new_incoming_index=Variable(incoming_index.data.new(w).fill_(0) )
-            new_probs=Variable(probs.data.new(w,1).fill_(0))
+            new_logprobs=Variable(logprobs.data.new(w,1).fill_(-float("inf")))
             new_history=[]
             for i in range(w):
                 new_history.append([])
 
             while True:
                 if  cols.data[p] == lang.EOS_TOKEN:
-                    best_terminated.try_add( history[rows.data[p]] + [cols.data[p]], top_probs.data[p] )
+                    best_terminated.try_add( history[rows.data[p]] + [cols.data[p]], top_logprobs.data[p] )
+                    s+=1
                 else:
                     new_cur_state[q,:]=states[rows[p],:]                           
                     new_incoming_index[q]=cols[p]
-                    new_probs[q,0]=top_probs[p]
+                    new_logprobs[q,0]=top_logprobs[p]
                     new_history[q]=history[rows.data[p]]+  [cols.data[p]] #cannot use append here since it works in place
                     q+=1
                 p+=1
 
                 if q>=w:
                     break
+                if s>=k: #The k terminated sequences found this timestep are better than any un-terminated sequences we can yet find. So we are done.
+                    break
                 assert(p<k+w)
 
             cur_state=new_cur_state
             incoming_index=new_incoming_index
-            probs=new_probs
-            #import pdb; pdb.set_trace()
+            logprobs=new_logprobs
+          #  if incoming_index.data[0]==7236:
+           #     import pdb; pdb.set_trace()
             history=new_history
-            if best_terminated.cur_size >= k and best_terminated.min_score()>=probs.data[0][0]: #worst terminated better than best unterminated
+            if best_terminated.cur_size >= k and (q==0  or best_terminated.min_score()>=logprobs.data[0][0]): # heap full and worst terminated better than best un-terminated or found no terminated this iteration
                 break
 
-        seqs,probs=best_terminated.to_lists()
-        return seqs,probs
+        seqs,finallogprobs=best_terminated.to_lists()
+        return seqs,finallogprobs
 
 
 class FixedHeap:

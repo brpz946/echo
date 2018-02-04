@@ -5,6 +5,7 @@ import torch.autograd as ag
 from torch.autograd import Variable
 import torch.optim as optim
 import logging
+import math
 
 import util
 import data_proc as dp
@@ -516,6 +517,9 @@ class MoreSearchRNNTests(unittest.TestCase):
 
 
 class PredictorTests(unittest.TestCase):
+    '''
+        Beam Search should behave as expected when given synthetic data.
+    '''
     def test_beam_search(self):
         def process_src(src):
             return []
@@ -524,13 +528,13 @@ class PredictorTests(unittest.TestCase):
             probs=Variable(torch.Tensor(num_seqs, 6).fill_(0))
             for i in range(num_seqs):
                 if index.data[i]==1:
-                    probs[i,:]=Variable(torch.Tensor([0,0,0,0.6,0.4,0]) )
+                    probs[i,:]=torch.log(Variable(torch.Tensor([0,0,0,0.6,0.4,0]) ))
                 elif index.data[i]==3:
-                    probs[i,:]=Variable(torch.Tensor([0,0,0.9,0,0,0.1]) )
+                    probs[i,:]=torch.log(Variable(torch.Tensor([0,0,0.9,0,0,0.1]) ))
                 elif index.data[i]==4:
-                    probs[i,:]=Variable(torch.Tensor([0,0,1,0,0,0]) )
+                    probs[i,:]=torch.log(Variable(torch.Tensor([0,0,1,0,0,0]) ))
                 elif index.data[i]==5:
-                    probs[i,:]=Variable(torch.Tensor([0,0,0,0,0,1]) )
+                    probs[i,:]=torch.log(Variable(torch.Tensor([0,0,0,0,0,1]) ))
                 else:
                     self.assertEqual(0,1)
             stateout=Variable(torch.Tensor(num_seqs,1))
@@ -540,8 +544,52 @@ class PredictorTests(unittest.TestCase):
         seqs,probs= predictor.predict(src_seq=[],k=2,w=2,cuda=False)  
         self.assertEqual(seqs[0],[1,4,2])
         self.assertEqual(seqs[1],[1,3,2])
-        self.assertAlmostEquals(probs[0],0.4)
-        self.assertAlmostEqual(probs[1],0.54)
+        self.assertAlmostEquals(probs[0],math.log(0.4))
+        self.assertAlmostEqual(probs[1],math.log(0.54))
+
+class MorePredictorTests(unittest.TestCase):
+    def setUp(self):
+        l1, l2, spairs = lang.read_langsv1('eng', 'fra',
+                                           '../data/eng-fra_tut/eng-fra.txt')
+        lang.index_words_from_pairs(l1, l2, spairs)
+        self.ds = dp.SupervisedTranslationDataset.from_strings(spairs, l1, l2)
+        self.model = ed.EncoderDecoderRNN(
+            l1.n_words,
+            l2.n_words,
+            src_embedding_dim=100,
+            tgt_embedding_dim=100,
+            hidden_dim=100)
+        self.model2 = search_rnn.SearchRNN(
+            src_vocab_size=l1.n_words,
+            tgt_vocab_size=l2.n_words,
+            src_embedding_dim=100,
+            tgt_embedding_dim=100,
+            src_hidden_dim=100,
+            tgt_hidden_dim=100,
+            n_layers=2)
+        
+    
+    # def test_enc_dec_beam_consistancy(self):
+        # '''
+        # BeamPredictor with beam width 1 should produce the same result as the old greedy prediction function
+        # '''
+        # beam=self.model.beam_predictor()
+        # oldpred= self.model.predict([lang.SOS_TOKEN,5,lang.EOS_TOKEN])
+        # newpred=beam.predict([lang.SOS_TOKEN,5,lang.EOS_TOKEN],k=1,w=1 )[0] 
+       # # import pdb; pdb.set_trace()
+        # self.assertEqual(oldpred,newpred[0] )
+
+    def test_search_beam_consistancy(self):
+        '''
+        BeamPredictor with beam width 1 should produce the same result as the old greedy prediction function when applied to SearchRNN
+        '''
+        beam=self.model2.beam_predictor()
+        oldpred= self.model2.predict([lang.SOS_TOKEN,5,lang.EOS_TOKEN])
+        newpred=beam.predict([lang.SOS_TOKEN,5,lang.EOS_TOKEN],k=1,w=1 )[0] 
+      #  import pdb; pdb.set_trace()
+        self.assertEqual(oldpred,newpred[0] )
+    
+
 
 if __name__ == '__main__':
     lang_test_suite = unittest.defaultTestLoader.loadTestsFromTestCase(
@@ -564,6 +612,7 @@ if __name__ == '__main__':
     schslowtests= unittest.defaultTestLoader.loadTestsFromTestCase(SearchRNNSlowTests)
     schmore=  unittest.defaultTestLoader.loadTestsFromTestCase(MoreSearchRNNTests)
     beam=  unittest.defaultTestLoader.loadTestsFromTestCase(PredictorTests)
+    morebeam=  unittest.defaultTestLoader.loadTestsFromTestCase(MorePredictorTests)
     fast = unittest.TestSuite()
     fast.addTest(lang_test_suite)
     fast.addTest(lang_util_test_suite)
@@ -581,4 +630,5 @@ if __name__ == '__main__':
     # #unittest.TextTestRunner().run(schslowtests)
     # unittest.TextTestRunner().run(schmore)
     unittest.TextTestRunner().run(beam)
+    unittest.TextTestRunner().run(morebeam)
 

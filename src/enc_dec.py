@@ -8,8 +8,9 @@ import torch.nn.functional as F
 import lang
 import data_proc as dp
 import basic_rnn
+import predictor
 
-MAX_PREDICTION_LENGTH = 20
+MAX_PREDICTION_LENGTH = 30
 
 
 class EncoderDecoderRNN(nn.Module):
@@ -117,7 +118,45 @@ class EncoderDecoderRNN(nn.Module):
                 break
             index = index.view(1, 1)
             iter = iter + 1
-            if iter >= MAX_PREDICTION_LENGTH:
+            if iter >= MAX_PREDICTION_LENGTH-1:
                 indexes.append(lang.EOS_TOKEN)
                 break
         return indexes
+
+    ##functions for use with beam search
+
+    def process_src(self,src_seq,src_length= None):
+        if src_length== None:
+            src_length=len(src_seq)
+        src_length= [src_length]
+        cuda = next(self.parameters()).is_cuda
+        in_seq = dp.TranslationBatch(ag.Variable(torch.LongTensor(src_seq)).view(1, -1), src_length)
+        if cuda:
+            in_seq = in_seq.cuda() 
+        _, src_state = self.encoder(in_seq)
+        return src_state 
+    
+    def advance_tgt(self,src_state, first, cur_state, index):
+        '''
+            Intended to be used with beam search. src_state is the hidden state produced by the encoder and so is only used on the first iteration.
+        '''
+        if first:
+            width= src_state.shape[0]
+            hidden=src_state
+        else:
+            width=cur_state.shape[0]
+            hidden=cur_state #need to reoganize cur_state so we can feed it into the decoder
+            hidden=hidden.view(width,self.decoder.n_layers*self.decoder.n_directions,self.decoder.hidden_dim ) 
+            hidden=hidden.transpose(0,1)
+        embedded=self.decoder.embed(index.view(-1,1))
+        out, hidden = self.decoder.gru(embedded, hidden)
+        out=out.view(width,self.decoder.n_directions*self.decoder.hidden_dim)
+        weights=self.lin(out)
+        logprobs= F.log_softmax(weights, dim=1)
+        #now need to process hidden again so it can be a cur_state
+        hidden=hidden.transpose(0,1)
+        hidden=hidden.view(width,self.decoder.n_layers*self.decoder.n_directions*self.decoder.hidden_dim)
+        return  logprobs, hidden 
+    def beam_predictor(self):
+       return predictor.BeamPredictor(self.process_src,self.advance_tgt,r=self.decoder.n_layers*self.decoder.n_directions*self.decoder.hidden_dim,tgt_vocab_size=self.out_vocab_size,max_seq_len=30) 
+    

@@ -2,12 +2,14 @@ import torch
 import torch.nn as nn
 import torch.nn.utils.rnn as rnn
 from torch.autograd import Variable
+import torch.nn.functional as F
 
 import basic_rnn as basic
 import data_proc as dp
 import lang
+import predictor
 
-MAX_PREDICTION_LENGTH = 20
+MAX_PREDICTION_LENGTH = 30
 class SearchRNN(nn.Module):
     '''
         Based on 'Neural Machine Translation by Jointly Learning to Align and Translate' by Bahdanau, Cho, and Bengio 
@@ -91,7 +93,7 @@ class SearchRNN(nn.Module):
         src_hidden_seq = src_hidden_seq[batch.perm, :, :]  #has dimensions batchsize by src_max sequence length by src_hidden_dim*2
         Uh = self.U(
             src_hidden_seq
-        )  #has dimension batchsize by src_max_seq_length by tgt_hidden_dim
+        )  #has dimension batchsize by src_max_seq_length by n_layers*tgt_hidden_dim
         cur_tgt_hidden_layer = Variable(src_hidden_seq.data.new(batchsize, self.decoder.n_layers, self.decoder.hidden_dim).zero_() )
 
         padding_knockout = Variable(src_hidden_seq.data.new(batchsize, src_max_seq_len,
@@ -127,10 +129,8 @@ class SearchRNN(nn.Module):
         if cuda:
             in_seq = in_seq.cuda()
         src_hidden_seq, _ = self.encoder(in_seq)
-        src_hidden_seq,_ = rnn.pad_packed_sequence(src_hidden_seq, batch_first=True)
-        Uh = self.U(
-            src_hidden_seq
-        )
+        src_hidden_seq,_ = rnn.pad_packed_sequence(src_hidden_seq, batch_first=True) 
+        Uh = self.U(src_hidden_seq)
         cur_tgt_hidden_layer = Variable(src_hidden_seq.data.new(1, self.decoder.n_layers, self.decoder.hidden_dim).zero_())
         num_continuing=1
         
@@ -151,10 +151,45 @@ class SearchRNN(nn.Module):
                 break
            index = index.view(1, 1)
            iter = iter + 1
-           if iter >= MAX_PREDICTION_LENGTH:
+           if iter >= MAX_PREDICTION_LENGTH-1:
                 indexes.append(lang.EOS_TOKEN)
                 break
         return indexes
+
+
+    def process_src(self,src_seq, src_length=None ):
+        cuda = next(self.parameters()).is_cuda
+        if src_length== None:
+            src_length=len(src_seq)
+        src_length= [src_length]
+        in_seq = dp.TranslationBatch(Variable(torch.LongTensor(src_seq)).view(1, -1), src_length)
+        src_hidden_seq, _ = self.encoder(in_seq)
+        src_hidden_seq, _ = rnn.pad_packed_sequence(src_hidden_seq, batch_first=True) #dimensions batch, 1,  2*src_hidden_dim
+        Uh = self.U(src_hidden_seq) #dimensions 1, n_layers* tgt_hidden_dim
+
+        src_state= [src_hidden_seq,  Uh]
+        return src_state
+    
+    def advance_tgt(self, src_state, first, cur_state,index ):
+        src_hidden_seq=src_state[0]
+        Uh=src_state[1]
+        if first:
+            width=1
+            cur_tgt_hidden_layer=Variable(src_hidden_seq.data.new(1, self.decoder.n_layers, self.decoder.hidden_dim).zero_())
+        else: 
+            width=cur_state.shape[0];
+            cur_tgt_hidden_layer=cur_state.view(width,self.decoder.n_layers,self.decoder.hidden_dim) #no need to transpose cur_gt_hidden layer: advance does that.
+        cur_tgt=dp.TranslationBatch(index.view(-1,1), torch.ones(index.shape[0]).long().tolist())
+        #import pdb; pdb.set_trace()
+        out, cur_tgt_hidden_layer  =  self.advance(num_continuing=width, cur_tgt_hidden_layer= cur_tgt_hidden_layer, src_hidden_seq=src_hidden_seq, cur_tgt=cur_tgt  ,Uh=Uh, padding_knockout=None )
+        out=out.view(width, self.decoder.hidden_dim)
+        weights=self.lin_out(out) #dimensions width by tgt_vocab size
+        logprobs=F.log_softmax(weights,dim=1)
+        out_state= cur_tgt_hidden_layer.view(width, self.decoder.n_layers*self.decoder.hidden_dim)
+        return logprobs,out_state
+    def beam_predictor(self):
+       return predictor.BeamPredictor(self.process_src,self.advance_tgt,r=self.decoder.n_layers*self.decoder.hidden_dim,tgt_vocab_size=self.tgt_vocab_size,max_seq_len=30) 
+    
 class AFunc(nn.Module):
     '''
         Input:

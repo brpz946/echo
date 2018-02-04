@@ -34,7 +34,7 @@ class RNN(nn.Module):
             -extra_input: should have dimension batchsize by seqlength by extra_input_dim
         outputs:
             -the predictions at every time step in packed form (main output of decoder RNNs)
-            -final hidden units of each layer (main output of encoder RNNs)
+            -final hidden units of each layer  (main output of encoder RNNs). Has dimensions (num_layers * num_directions, batch, hidden_size)
     '''
 
     def __init__(self,
