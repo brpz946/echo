@@ -27,10 +27,11 @@ class EncoderDecoderRNN(nn.Module):
         Outputs:
             --A variable holding the output  of the loss function (cross-entropy).
     '''
+
     @staticmethod
-    def construct(*largs,**args):
-        return EncoderDecoderRNN(*largs,**args)
-    
+    def construct(*largs, **args):
+        return EncoderDecoderRNN(*largs, **args)
+
     def __init__(self,
                  src_vocab_size,
                  tgt_vocab_size,
@@ -55,11 +56,10 @@ class EncoderDecoderRNN(nn.Module):
             tgt_vocab_size,
             tgt_embedding_dim,
             hidden_dim,
-            n_directions*n_layers,
+            n_directions * n_layers,
             bidirectional=False,
             pretrained_embedding=pre_tgt_embedding)
-        self.lin = torch.nn.Linear(
-             hidden_dim, tgt_vocab_size, bias=False)
+        self.lin = torch.nn.Linear(hidden_dim, tgt_vocab_size, bias=False)
         self.loss = nn.CrossEntropyLoss(ignore_index=0)  #ignore padding
 
     def encode_decode(self, batch):
@@ -95,44 +95,57 @@ class EncoderDecoderRNN(nn.Module):
             Returns:
                 - A list of integers containing the predicted output sequence.
         '''
-        predictor=self.beam_predictor()
-        return predictor.predict(in_seq,k=1,w=1 )[0][0]
+        predictor = self.beam_predictor()
+        return predictor.predict(in_seq, k=1, w=1)[0][0]
 
     ##functions for use with beam search
 
-    def process_src(self,src_seq,src_length= None):
-        if src_length== None:
-            src_length=len(src_seq)
-        src_length= [src_length]
+    def process_src(self, src_seq, src_length=None):
+        if src_length == None:
+            src_length = len(src_seq)
+        src_length = [src_length]
         cuda = next(self.parameters()).is_cuda
-        in_seq = dp.TranslationBatch(ag.Variable(torch.LongTensor(src_seq)).view(1, -1), src_length)
+        in_seq = dp.TranslationBatch(
+            ag.Variable(torch.LongTensor(src_seq)).view(1, -1), src_length)
         if cuda:
-            in_seq = in_seq.cuda() 
+            in_seq = in_seq.cuda()
         _, src_state = self.encoder(in_seq)
-        return src_state 
-    
-    def advance_tgt(self,src_state, first, cur_state, index):
+        return src_state
+
+    def advance_tgt(self, src_state, first, cur_state, index):
         '''
             Intended to be used with beam search. src_state is the hidden state produced by the encoder and so is only used on the first iteration.
         '''
         if first:
-            width= src_state.shape[0]
-            hidden=src_state
+            width = src_state.shape[0]
+            hidden = src_state
         else:
-            width=cur_state.shape[0]
-            hidden=cur_state #need to reoganize cur_state so we can feed it into the decoder
-            hidden=hidden.view(width,self.decoder.n_layers*self.decoder.n_directions,self.decoder.hidden_dim ) 
-            hidden=hidden.transpose(0,1)
-        embedded=self.decoder.embed(index.view(-1,1))
+            width = cur_state.shape[0]
+            hidden = cur_state  #need to reoganize cur_state so we can feed it into the decoder
+            hidden = hidden.view(
+                width, self.decoder.n_layers * self.decoder.n_directions,
+                self.decoder.hidden_dim)
+            hidden = hidden.transpose(0, 1)
+        embedded = self.decoder.embed(index.view(-1, 1))
         out, hidden = self.decoder.gru(embedded, hidden)
-        out=out.view(width,self.decoder.n_directions*self.decoder.hidden_dim)
-        weights=self.lin(out)
-        logprobs= F.log_softmax(weights, dim=1)
+        out = out.view(width,
+                       self.decoder.n_directions * self.decoder.hidden_dim)
+        weights = self.lin(out)
+        logprobs = F.log_softmax(weights, dim=1)
         #now need to process hidden again so it can be a cur_state
-        hidden=hidden.transpose(0,1)
-        hidden=hidden.view(width,self.decoder.n_layers*self.decoder.n_directions*self.decoder.hidden_dim)
-        return  logprobs, hidden 
+        hidden = hidden.transpose(0, 1)
+        hidden = hidden.view(width,
+                             self.decoder.n_layers * self.decoder.n_directions
+                             * self.decoder.hidden_dim)
+        return logprobs, hidden
+
     def beam_predictor(self):
-       cuda = next(self.parameters()).is_cuda
-       return predictor.BeamPredictor(self.process_src,self.advance_tgt,r=self.decoder.n_layers*self.decoder.n_directions*self.decoder.hidden_dim,tgt_vocab_size=self.out_vocab_size,max_seq_len=30,cuda=cuda) 
-    
+        cuda = next(self.parameters()).is_cuda
+        return predictor.BeamPredictor(
+            self.process_src,
+            self.advance_tgt,
+            r=self.decoder.n_layers * self.decoder.n_directions *
+            self.decoder.hidden_dim,
+            tgt_vocab_size=self.out_vocab_size,
+            max_seq_len=30,
+            cuda=cuda)

@@ -43,8 +43,8 @@ class TestPhraseReporter(Reporter):
         self.model = model
         self.l1 = l1
         self.l2 = l2
-        if isinstance(phrases,str):
-            phrases=[phrases]
+        if isinstance(phrases, str):
+            phrases = [phrases]
         self.phrases = phrases
 
     def report(self, starttime, curiter, totaliter, loss):
@@ -56,4 +56,3 @@ class TestPhraseReporter(Reporter):
             #logging.info("Code:%s", dexsamp)
             #logging.info("Mapped code:%s", pred)
             logging.info("Translation:%s", self.l2.dex2sentence(pred))
-

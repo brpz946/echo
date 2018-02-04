@@ -48,10 +48,10 @@ class RNN(nn.Module):
         super(RNN, self).__init__()
         self.n_layers = n_layers
         self.hidden_dim = hidden_dim
-        self.extra_input_dim=extra_input_dim
+        self.extra_input_dim = extra_input_dim
         self.embedding = nn.Embedding(vocab_size, embedding_dim)
         self.gru = nn.GRU(
-            input_size=embedding_dim+extra_input_dim,
+            input_size=embedding_dim + extra_input_dim,
             hidden_size=hidden_dim,
             num_layers=n_layers,
             batch_first=True,
@@ -78,7 +78,7 @@ class RNN(nn.Module):
         embedded = self.embed(batch.seqs)
         if self.extra_input_dim > 0:
             #import pdb; pdb.set_trace()
-            embedded=torch.cat( (embedded,extra_input),2)
+            embedded = torch.cat((embedded, extra_input), 2)
 
         packed = rnn.pack_padded_sequence(
             embedded, batch.lengths, batch_first=True)
@@ -88,5 +88,3 @@ class RNN(nn.Module):
             hidden_seq, final_hidden = self.gru(packed)
         #hidden_seq is packed sequence.  when unpacked has dimension batch_size by (max) seq_length by hidden_dim*num_directions
         return hidden_seq, final_hidden
-
-

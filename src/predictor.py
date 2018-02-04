@@ -1,9 +1,9 @@
-
 import heapq
 import torch
 from torch.autograd import Variable
 
 import lang
+
 
 class BeamPredictor:
     '''
@@ -29,16 +29,22 @@ class BeamPredictor:
             --tgt_vocab_size: size of the target vocabulary
             -cuda: Whether to use cuda.
     '''
-    def __init__(self,process_src, advance_tgt,r,tgt_vocab_size,max_seq_len=30,cuda=False): 
-        self.process_src=process_src
-        self.advance_tgt=advance_tgt
-        self.r=r 
-        self.tgt_vocab_size=tgt_vocab_size
-        self.max_tgt_seq_len=max_seq_len
-        self.cuda=cuda
-        
-        
-    def predict(self, src_seq, k, w ):        
+
+    def __init__(self,
+                 process_src,
+                 advance_tgt,
+                 r,
+                 tgt_vocab_size,
+                 max_seq_len=30,
+                 cuda=False):
+        self.process_src = process_src
+        self.advance_tgt = advance_tgt
+        self.r = r
+        self.tgt_vocab_size = tgt_vocab_size
+        self.max_tgt_seq_len = max_seq_len
+        self.cuda = cuda
+
+    def predict(self, src_seq, k, w):
         '''
         Carry out a beam search.
         Args:
@@ -48,102 +54,118 @@ class BeamPredictor:
         Returns:
             -A list of k lists, the predictions produced by the model for the input src_vals
         '''
-        src_state=self.process_src(src_seq) #src_state is used only by advance_output.  Thus, its contents need only be acceptable to that function. 
-        cur_state=Variable(torch.Tensor(0).fill_(0))
-        incoming_index=Variable(torch.LongTensor([lang.SOS_TOKEN]))
-        logprobs=Variable(torch.Tensor(1,1).fill_(0))
-        history=[[ lang.SOS_TOKEN  ]]
+        src_state = self.process_src(
+            src_seq
+        )  #src_state is used only by advance_output.  Thus, its contents need only be acceptable to that function.
+        cur_state = Variable(torch.Tensor(0).fill_(0))
+        incoming_index = Variable(torch.LongTensor([lang.SOS_TOKEN]))
+        logprobs = Variable(torch.Tensor(1, 1).fill_(0))
+        history = [[lang.SOS_TOKEN]]
         if self.cuda:
-            incoming_index=incoming_index.cuda()
-            logprobs=logprobs.cuda()
-            cur_state=cur_state.cuda()
+            incoming_index = incoming_index.cuda()
+            logprobs = logprobs.cuda()
+            cur_state = cur_state.cuda()
 
-        best_terminated=FixedHeap(k) 
-        cur_depth=1
-        
+        best_terminated = FixedHeap(k)
+        cur_depth = 1
+
         while True:
-            [step_logprobs,states]=self.advance_tgt(src_state=src_state,first=(cur_depth==1),cur_state=cur_state,index=incoming_index)
-            overall_logprobs=step_logprobs+ logprobs #broadcast
-            [top_logprobs, top_inds]=torch.topk(overall_logprobs.view(-1),k=k+w,sorted=True)
-            rows=top_inds.div(self.tgt_vocab_size)
-            cols=top_inds.remainder(self.tgt_vocab_size) 
-            
-            cur_depth+=1
+            [step_logprobs, states] = self.advance_tgt(
+                src_state=src_state,
+                first=(cur_depth == 1),
+                cur_state=cur_state,
+                index=incoming_index)
+            overall_logprobs = step_logprobs + logprobs  #broadcast
+            [top_logprobs, top_inds] = torch.topk(
+                overall_logprobs.view(-1), k=k + w, sorted=True)
+            rows = top_inds.div(self.tgt_vocab_size)
+            cols = top_inds.remainder(self.tgt_vocab_size)
+
+            cur_depth += 1
             if cur_depth >= self.max_tgt_seq_len:
-                z=0
-                while best_terminated.cur_size<k:
-                    best_terminated.try_add( history[rows.data[z]] + [cols.data[z]] + [lang.EOS_TOKEN], top_logprobs.data[z]  )
-                    z+=1
+                z = 0
+                while best_terminated.cur_size < k:
+                    best_terminated.try_add(history[rows.data[z]] +
+                                            [cols.data[z]] + [lang.EOS_TOKEN],
+                                            top_logprobs.data[z])
+                    z += 1
                 break
 
-            p=0 #current index in old sequences
-            q=0 #current index in new  sequences being created for next timestep
-            s=0 #number of terminated seqiences found so far
-            new_cur_state=Variable(cur_state.data.new(w,self.r).fill_(0))
-            new_incoming_index=Variable(incoming_index.data.new(w).fill_(0) )
-            new_logprobs=Variable(logprobs.data.new(w,1).fill_(-float("inf")))
-            new_history=[]
+            p = 0  #current index in old sequences
+            q = 0  #current index in new  sequences being created for next timestep
+            s = 0  #number of terminated seqiences found so far
+            new_cur_state = Variable(cur_state.data.new(w, self.r).fill_(0))
+            new_incoming_index = Variable(incoming_index.data.new(w).fill_(0))
+            new_logprobs = Variable(
+                logprobs.data.new(w, 1).fill_(-float("inf")))
+            new_history = []
             for i in range(w):
                 new_history.append([])
 
             while True:
-                if  cols.data[p] == lang.EOS_TOKEN:
-                    best_terminated.try_add( history[rows.data[p]] + [cols.data[p]], top_logprobs.data[p] )
-                    s+=1
+                if cols.data[p] == lang.EOS_TOKEN:
+                    best_terminated.try_add(
+                        history[rows.data[p]] + [cols.data[p]],
+                        top_logprobs.data[p])
+                    s += 1
                 else:
-                    new_cur_state[q,:]=states[rows[p],:].squeeze()                           
-                    new_incoming_index[q]=cols[p]
-                    new_logprobs[q,0]=top_logprobs[p]
-                    new_history[q]=history[rows.data[p]]+  [cols.data[p]] #cannot use append here since it works in place
-                    q+=1
-                p+=1
+                    new_cur_state[q, :] = states[rows[p], :].squeeze()
+                    new_incoming_index[q] = cols[p]
+                    new_logprobs[q, 0] = top_logprobs[p]
+                    new_history[q] = history[rows.data[p]] + [
+                        cols.data[p]
+                    ]  #cannot use append here since it works in place
+                    q += 1
+                p += 1
 
-                if q>=w:
+                if q >= w:
                     break
-                if s>=k: #The k terminated sequences found this timestep are better than any un-terminated sequences we can yet find. So we are done.
+                if s >= k:  #The k terminated sequences found this timestep are better than any un-terminated sequences we can yet find. So we are done.
                     break
-                assert(p<k+w)
+                assert (p < k + w)
 
-            cur_state=new_cur_state
-            incoming_index=new_incoming_index
-            logprobs=new_logprobs
-          #  if incoming_index.data[0]==7236:
-           #     import pdb; pdb.set_trace()
-            history=new_history
-            if best_terminated.cur_size >= k and (q==0  or best_terminated.min_score()>=logprobs.data[0][0]): # heap full and worst terminated better than best un-terminated or found no terminated this iteration
+            cur_state = new_cur_state
+            incoming_index = new_incoming_index
+            logprobs = new_logprobs
+            #  if incoming_index.data[0]==7236:
+            #     import pdb; pdb.set_trace()
+            history = new_history
+            if best_terminated.cur_size >= k and (
+                    q == 0
+                    or best_terminated.min_score() >= logprobs.data[0][0]
+            ):  # heap full and worst terminated better than best un-terminated or found no terminated this iteration
                 break
 
-        seqs,finallogprobs=best_terminated.to_lists()
-        return seqs,finallogprobs
+        seqs, finallogprobs = best_terminated.to_lists()
+        return seqs, finallogprobs
 
 
 class FixedHeap:
-    
-    def __init__(self,k):
-        self.k=k
-        self.cur_size=0
-        self.seen_so_far=0
-        self.heap=[]
+    def __init__(self, k):
+        self.k = k
+        self.cur_size = 0
+        self.seen_so_far = 0
+        self.heap = []
 
     def try_add(self, item, score):
-        if self.cur_size<self.k:
-            heapq.heappush(self.heap,(score,self.seen_so_far,item))
-            self.cur_size+=1
+        if self.cur_size < self.k:
+            heapq.heappush(self.heap, (score, self.seen_so_far, item))
+            self.cur_size += 1
         else:
-            if score> self.heap[0][0]:
-                heapq.heapreplace(self.heap,(score,self.seen_so_far,item))
+            if score > self.heap[0][0]:
+                heapq.heapreplace(self.heap, (score, self.seen_so_far, item))
 
-        assert(len(self.heap)<=self.k)
-        self.seen_so_far+=1
-    
-    def min_score(self): 
+        assert (len(self.heap) <= self.k)
+        self.seen_so_far += 1
+
+    def min_score(self):
         return self.heap[0][0]
-    
+
     def to_lists(self):
-        items=[]
-        scores=[]
-        while len(self.heap)>0:
-            entry= heapq.heappop(self.heap)
+        items = []
+        scores = []
+        while len(self.heap) > 0:
+            entry = heapq.heappop(self.heap)
             items.append(entry[2])
             scores.append(entry[0])
-        return items,scores
+        return items, scores

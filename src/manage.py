@@ -21,49 +21,46 @@ class Manager():
         self.model = model
         self.trainer = trainer
 
-    def save(self,path):
-       torch.save(l1,path + "_l1")
-       torch.save(l2,path+ "_l2")
-       torch.save(model,path + "_model")
-       torch.save(trainer,path+ "_trainer")
-    
+    def save(self, path):
+        torch.save(l1, path + "_l1")
+        torch.save(l2, path + "_l2")
+        torch.save(model, path + "_model")
+        torch.save(trainer, path + "_trainer")
+
     @staticmethod
     def load(path):
-        l1=torch.load(path+"_l1")
-        l2=torch.load(path+"_l2")
-        model=torch.load(path+"_model")
-        trainer=torch.load(path+"_trainer")
-        return Manager(l1,l2,model,trainer)
-
-
+        l1 = torch.load(path + "_l1")
+        l2 = torch.load(path + "_l2")
+        model = torch.load(path + "_model")
+        trainer = torch.load(path + "_trainer")
+        return Manager(l1, l2, model, trainer)
 
     @staticmethod
     def basic_from_file(path,
-                                lr=0.01,
-                                cuda=False,
-                                report_interval=10,
-                                batchsize=32,
-                                in_dim=100,
-                                out_dim=100,
-                                hidden_dim=100,
-                                l1_name="l1",
-                                l2_name="l2",
-                                testphrase="By the gods!",
-                                loglevel=logging.INFO,
-                                filt=None,
-                                opt='sgd',
-                                pretrained=False,
-                                pre_src_path=None,
-                                pre_tgt_path=None,
-                                model_constructor=ed.EncoderDecoderRNN.construct):
+                        lr=0.01,
+                        cuda=False,
+                        report_interval=10,
+                        batchsize=32,
+                        in_dim=100,
+                        out_dim=100,
+                        hidden_dim=100,
+                        l1_name="l1",
+                        l2_name="l2",
+                        testphrase="By the gods!",
+                        loglevel=logging.INFO,
+                        filt=None,
+                        opt='sgd',
+                        pretrained=False,
+                        pre_src_path=None,
+                        pre_tgt_path=None,
+                        model_constructor=ed.EncoderDecoderRNN.construct):
         logging.getLogger().setLevel(loglevel)
         l1, l2, spairs = lang.read_langsv1(l1_name, l2_name, path, filt)
         lang.index_words_from_pairs(l1, l2, spairs)
         dataset = dp.SupervisedTranslationDataset.from_strings(spairs, l1, l2)
-        #todo: add pretrained support here 
-         
-         
-        model= model_constructor(
+        #todo: add pretrained support here
+
+        model = model_constructor(
             src_vocab_size=l1.n_words,
             tgt_vocab_size=l2.n_words,
             src_embedding_dim=in_dim,
@@ -82,18 +79,12 @@ class Manager():
             opt=opt)
         return Manager(l1, l2, model, trainer)
 
-
-
-        
-    
     @staticmethod
-    def basic_enc_dec_from_file(*largs,**kwargs):
-        kwargs["model_constructor"]=ed.EncoderDecoderRNN.construct 
-        return Manager.basic_from_file(*largs,**kwargs)
+    def basic_enc_dec_from_file(*largs, **kwargs):
+        kwargs["model_constructor"] = ed.EncoderDecoderRNN.construct
+        return Manager.basic_from_file(*largs, **kwargs)
 
     @staticmethod
     def basic_search_from_file(**args):
-        args["model_constructor"]=search_rnn.SearchRNN.construct
+        args["model_constructor"] = search_rnn.SearchRNN.construct
         return Manager.basic_from_file(**args)
-       
-    

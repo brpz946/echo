@@ -4,7 +4,6 @@ import math
 import torch
 from torch.autograd import Variable
 
-
 import lang
 import util
 
@@ -41,14 +40,17 @@ class TranslationBatch:
             Variable(pad_tensor), seq_lens[perm].tolist())
         return translation_batch, perm
 
-    def first_k(self,k):
-        return TranslationBatch(self.seqs[:k,:],self.lengths[:k] )
-    def first_k_at_t(self,k,t):
-        assert(self.lengths[k-1]>t )
-        newseq=self.seqs[:k,t]
+    def first_k(self, k):
+        return TranslationBatch(self.seqs[:k, :], self.lengths[:k])
+
+    def first_k_at_t(self, k, t):
+        assert (self.lengths[k - 1] > t)
+        newseq = self.seqs[:k, t]
         newseq.contiguous()
         #import pdb; pdb.set_trace()
-        return TranslationBatch(newseq.view(k,1),torch.LongTensor(k).fill_(1).tolist())
+        return TranslationBatch(
+            newseq.view(k, 1),
+            torch.LongTensor(k).fill_(1).tolist())
 
     def __str__(self):
         s = "TranslationBatch containing:\n" + str(self.seqs)
@@ -139,7 +141,7 @@ class SupervisedTranslationDataset:
             ] for j in [0, 1]]
             batches.append(SupervisedTranslationBatch.from_list(seqs))
         return batches
-    
+
     def split(self, prop):
         '''
         Extracts a speicified proprtion of the data and returns it in head.  After this function can been called on a dataset, it contains all data not returned in head.
@@ -150,7 +152,7 @@ class SupervisedTranslationDataset:
             --Head: A SupervisedTranslationDataset consisting of  proportion prop of the data
         '''
         random.shuffle(self.lseq)
-        head_size=math.floor(prop*len(lseq))
-        head=lseq[:head_size]
-        lseq=lseq[head_size:]
+        head_size = math.floor(prop * len(lseq))
+        head = lseq[:head_size]
+        lseq = lseq[head_size:]
         return head

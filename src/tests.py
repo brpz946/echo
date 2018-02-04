@@ -17,6 +17,8 @@ import manage
 import word_vectors as wv
 import basic_rnn
 import predictor as pr
+
+
 class LangTest(unittest.TestCase):
     def test_add_word(self):
         '''Words added to a language should appear in word2index, word2count, index2word '''
@@ -158,10 +160,10 @@ class EncDecTest(unittest.TestCase):
         encoder = basic_rnn.RNN(5, 6, 7, extra_input_dim=1)
         input_padded = ag.Variable(
             torch.LongTensor([[1, 2, 3, 4], [1, 0, 0, 0]]))
-        extra_in=ag.Variable(torch.Tensor(2,4,1))
-        extra_in.requires_grad =True
+        extra_in = ag.Variable(torch.Tensor(2, 4, 1))
+        extra_in.requires_grad = True
         batch = dp.TranslationBatch(input_padded, [3, 1])
-        _, code = encoder(batch,extra_input=extra_in)
+        _, code = encoder(batch, extra_input=extra_in)
         #
 
     def test_basic_encoder_decoder2(self):
@@ -398,7 +400,9 @@ class ManagerTests(unittest.TestCase):
             return
 
         man = manage.Manager.basic_enc_dec_from_file(
-            "../data/testing/by_the_gods.txt", loglevel=logging.WARNING, cuda=True)
+            "../data/testing/by_the_gods.txt",
+            loglevel=logging.WARNING,
+            cuda=True)
         man.trainer.train(100)
         dexsamp = man.l1.sentence2dex("by the gods !")
         pred = man.model.predict(dexsamp)
@@ -433,12 +437,16 @@ class WordVectorTests(unittest.TestCase):
         self.assertFalse(pt.weights.requires_grad)
         self.assertTrue(pt.missing.requires_grad)
 
+
 class SearchRNNFastTests(unittest.TestCase):
     def test_simp(self):
-        sch=search_rnn.SearchRNN(5,5,2,3,6,7)
-        src_batch=dp.TranslationBatch( Variable(torch.LongTensor([[4,3,2],[1,0,0]])) ,[3,1])
-        tgt_batch=dp.TranslationBatch(Variable(torch.LongTensor([[3,4,0],[3,3,3]])) ,[2,3])
-        batch=dp.SupervisedTranslationBatch(src_batch,tgt_batch,torch.LongTensor([0,1])  )
+        sch = search_rnn.SearchRNN(5, 5, 2, 3, 6, 7)
+        src_batch = dp.TranslationBatch(
+            Variable(torch.LongTensor([[4, 3, 2], [1, 0, 0]])), [3, 1])
+        tgt_batch = dp.TranslationBatch(
+            Variable(torch.LongTensor([[3, 4, 0], [3, 3, 3]])), [2, 3])
+        batch = dp.SupervisedTranslationBatch(src_batch, tgt_batch,
+                                              torch.LongTensor([0, 1]))
         sch(batch)
 
 
@@ -457,51 +465,50 @@ class SearchRNNSlowTests(unittest.TestCase):
             tgt_hidden_dim=100,
             n_layers=2)
 
-
     def test_search_train_step(self):
         '''
        training a multi-layer encoder-decoder for one step should change its parameters.
        '''
         trainer = tr.Trainer(self.model, 0.01, self.ds, 32, 1, reporter=None)
         before = []
-        names=[]
+        names = []
         beforeshapes = []
-        for name,param in self.model.named_parameters():
-            print("parameter: ",name)
+        for name, param in self.model.named_parameters():
+            print("parameter: ", name)
             names.append(name)
             before.append(param.data.tolist())
             beforeshapes.append(param.shape)
         trainer.train(1)
         for i, param in enumerate(self.model.parameters()):
-            print("comapring parameter ",names[i])
+            print("comapring parameter ", names[i])
             self.assertEqual(param.shape, beforeshapes[i])
             self.assertNotEqual(param.data.tolist(), before[i])
 
+
 class MoreSearchRNNTests(unittest.TestCase):
     # def test_search_basic_run(self):
-        # '''The model should learn to translate when the dataset consists of one phrase u '''
+    # '''The model should learn to translate when the dataset consists of one phrase u '''
 
-        # man = manage.Manager.basic_search_from_file(
-            # "../data/testing/by_the_gods.txt", loglevel=logging.WARNING )
-        # man.trainer.train(100)
-        # dexsamp = man.l1.sentence2dex("by the gods !")
-        # pred = man.model.predict(dexsamp)
-        # translation = man.l2.dex2sentence(pred)
-        # self.assertEquals(translation, "by the gods !")
-
-
+    # man = manage.Manager.basic_search_from_file(
+    # "../data/testing/by_the_gods.txt", loglevel=logging.WARNING )
+    # man.trainer.train(100)
+    # dexsamp = man.l1.sentence2dex("by the gods !")
+    # pred = man.model.predict(dexsamp)
+    # translation = man.l2.dex2sentence(pred)
+    # self.assertEquals(translation, "by the gods !")
 
     def test_search_basic_run(self):
         '''The model should learn to translate when the dataset consists of one phrase  on the gpu '''
 
         man = manage.Manager.basic_search_from_file(
-            path="../data/testing/by_the_gods.txt", loglevel=logging.WARNING,cuda=True )
+            path="../data/testing/by_the_gods.txt",
+            loglevel=logging.WARNING,
+            cuda=True)
         man.trainer.train(100)
         dexsamp = man.l1.sentence2dex("by the gods !")
         pred = man.model.predict(dexsamp)
         translation = man.l2.dex2sentence(pred)
         self.assertEquals(translation, "by the gods !")
-
 
 
 #    def test_search_basic_run2(self):
@@ -520,32 +527,40 @@ class PredictorTests(unittest.TestCase):
     '''
         Beam Search should behave as expected when given synthetic data.
     '''
+
     def test_beam_search(self):
         def process_src(src):
             return []
-        def advance_tgt(src_state, first,cur_state, index):
-            num_seqs=index.shape[0]
-            probs=Variable(torch.Tensor(num_seqs, 6).fill_(0))
+
+        def advance_tgt(src_state, first, cur_state, index):
+            num_seqs = index.shape[0]
+            probs = Variable(torch.Tensor(num_seqs, 6).fill_(0))
             for i in range(num_seqs):
-                if index.data[i]==1:
-                    probs[i,:]=torch.log(Variable(torch.Tensor([0,0,0,0.6,0.4,0]) ))
-                elif index.data[i]==3:
-                    probs[i,:]=torch.log(Variable(torch.Tensor([0,0,0.9,0,0,0.1]) ))
-                elif index.data[i]==4:
-                    probs[i,:]=torch.log(Variable(torch.Tensor([0,0,1,0,0,0]) ))
-                elif index.data[i]==5:
-                    probs[i,:]=torch.log(Variable(torch.Tensor([0,0,0,0,0,1]) ))
+                if index.data[i] == 1:
+                    probs[i, :] = torch.log(
+                        Variable(torch.Tensor([0, 0, 0, 0.6, 0.4, 0])))
+                elif index.data[i] == 3:
+                    probs[i, :] = torch.log(
+                        Variable(torch.Tensor([0, 0, 0.9, 0, 0, 0.1])))
+                elif index.data[i] == 4:
+                    probs[i, :] = torch.log(
+                        Variable(torch.Tensor([0, 0, 1, 0, 0, 0])))
+                elif index.data[i] == 5:
+                    probs[i, :] = torch.log(
+                        Variable(torch.Tensor([0, 0, 0, 0, 0, 1])))
                 else:
-                    self.assertEqual(0,1)
-            stateout=Variable(torch.Tensor(num_seqs,1))
+                    self.assertEqual(0, 1)
+            stateout = Variable(torch.Tensor(num_seqs, 1))
             return probs, stateout
 
-        predictor=pr.BeamPredictor(process_src,advance_tgt,r=1,max_seq_len=20, tgt_vocab_size=6)
-        seqs,probs= predictor.predict(src_seq=[],k=2,w=2)  
-        self.assertEqual(seqs[0],[1,4,2])
-        self.assertEqual(seqs[1],[1,3,2])
-        self.assertAlmostEquals(probs[0],math.log(0.4))
-        self.assertAlmostEqual(probs[1],math.log(0.54))
+        predictor = pr.BeamPredictor(
+            process_src, advance_tgt, r=1, max_seq_len=20, tgt_vocab_size=6)
+        seqs, probs = predictor.predict(src_seq=[], k=2, w=2)
+        self.assertEqual(seqs[0], [1, 4, 2])
+        self.assertEqual(seqs[1], [1, 3, 2])
+        self.assertAlmostEquals(probs[0], math.log(0.4))
+        self.assertAlmostEqual(probs[1], math.log(0.54))
+
 
 class MorePredictorTests(unittest.TestCase):
     def setUp(self):
@@ -567,50 +582,49 @@ class MorePredictorTests(unittest.TestCase):
             src_hidden_dim=100,
             tgt_hidden_dim=100,
             n_layers=2)
-        
-    
+
     # def test_enc_dec_beam_consistancy(self):
-        # '''
-        # BeamPredictor with beam width 1 should produce the same result as the old greedy prediction function
-        # '''
-        # beam=self.model.beam_predictor()
-        # oldpred= self.model.predict([lang.SOS_TOKEN,5,lang.EOS_TOKEN])
-        # newpred=beam.predict([lang.SOS_TOKEN,5,lang.EOS_TOKEN],k=1,w=1 )[0] 
-       # # import pdb; pdb.set_trace()
-        # self.assertEqual(oldpred,newpred[0] )
+    # '''
+    # BeamPredictor with beam width 1 should produce the same result as the old greedy prediction function
+    # '''
+    # beam=self.model.beam_predictor()
+    # oldpred= self.model.predict([lang.SOS_TOKEN,5,lang.EOS_TOKEN])
+    # newpred=beam.predict([lang.SOS_TOKEN,5,lang.EOS_TOKEN],k=1,w=1 )[0]
+    # # import pdb; pdb.set_trace()
+    # self.assertEqual(oldpred,newpred[0] )
 
     # def test_search_beam_consistancy(self):
-        # '''
-        # BeamPredictor with beam width 1 should produce the same result as the old greedy prediction function when applied to SearchRNN
-        # '''
-        # beam=self.model2.beam_predictor()
-        # oldpred= self.model2.predict([lang.SOS_TOKEN,5,lang.EOS_TOKEN])
-        # newpred=beam.predict([lang.SOS_TOKEN,5,lang.EOS_TOKEN],k=1,w=1 )[0] 
-      # #  import pdb; pdb.set_trace()
-        # self.assertEqual(oldpred,newpred[0] )
-    
+    # '''
+    # BeamPredictor with beam width 1 should produce the same result as the old greedy prediction function when applied to SearchRNN
+    # '''
+    # beam=self.model2.beam_predictor()
+    # oldpred= self.model2.predict([lang.SOS_TOKEN,5,lang.EOS_TOKEN])
+    # newpred=beam.predict([lang.SOS_TOKEN,5,lang.EOS_TOKEN],k=1,w=1 )[0]
+    # #  import pdb; pdb.set_trace()
+    # self.assertEqual(oldpred,newpred[0] )
+
     # def test_search_beam_consistancy_gpu(self):
-        # '''
-        # BeamPredictor with beam width 1 should produce the same result as the old greedy prediction function when applied to SearchRNN on the GPU
-        # '''
-        # self.model2=self.model2.cuda()
-        # beam=self.model2.beam_predictor()
-        # oldpred= self.model2.predict([lang.SOS_TOKEN,5,lang.EOS_TOKEN])
-        # newpred=beam.predict([lang.SOS_TOKEN,5,lang.EOS_TOKEN],k=1,w=1 )[0] 
-      # #  import pdb; pdb.set_trace()
-        # self.assertEqual(oldpred,newpred[0] )
-    
+    # '''
+    # BeamPredictor with beam width 1 should produce the same result as the old greedy prediction function when applied to SearchRNN on the GPU
+    # '''
+    # self.model2=self.model2.cuda()
+    # beam=self.model2.beam_predictor()
+    # oldpred= self.model2.predict([lang.SOS_TOKEN,5,lang.EOS_TOKEN])
+    # newpred=beam.predict([lang.SOS_TOKEN,5,lang.EOS_TOKEN],k=1,w=1 )[0]
+    # #  import pdb; pdb.set_trace()
+    # self.assertEqual(oldpred,newpred[0] )
+
     def test_enc_dec_beam_consistancy_gpu(self):
         '''
         BeamPredictor with beam width 1 should produce the same result as the old greedy prediction function when used on the gpu
         '''
-        self.model=self.model.cuda()
-        beam=self.model.beam_predictor()
-        oldpred= self.model.predict([lang.SOS_TOKEN,5,lang.EOS_TOKEN])
-        newpred=beam.predict([lang.SOS_TOKEN,5,lang.EOS_TOKEN],k=1,w=1 )[0] 
-       # import pdb; pdb.set_trace()
-        self.assertEqual(oldpred,newpred[0] )
-
+        self.model = self.model.cuda()
+        beam = self.model.beam_predictor()
+        oldpred = self.model.predict([lang.SOS_TOKEN, 5, lang.EOS_TOKEN])
+        newpred = beam.predict(
+            [lang.SOS_TOKEN, 5, lang.EOS_TOKEN], k=1, w=1)[0]
+        # import pdb; pdb.set_trace()
+        self.assertEqual(oldpred, newpred[0])
 
 
 if __name__ == '__main__':
@@ -630,27 +644,30 @@ if __name__ == '__main__':
         MultiLayerTrainerTest)
     bitests = unittest.defaultTestLoader.loadTestsFromTestCase(BiTrainerTests)
     wvtests = unittest.defaultTestLoader.loadTestsFromTestCase(WordVectorTests)
-    schtests=  unittest.defaultTestLoader.loadTestsFromTestCase(SearchRNNFastTests)
-    schslowtests= unittest.defaultTestLoader.loadTestsFromTestCase(SearchRNNSlowTests)
-    schmore=  unittest.defaultTestLoader.loadTestsFromTestCase(MoreSearchRNNTests)
-    beam=  unittest.defaultTestLoader.loadTestsFromTestCase(PredictorTests)
-    morebeam=  unittest.defaultTestLoader.loadTestsFromTestCase(MorePredictorTests)
+    schtests = unittest.defaultTestLoader.loadTestsFromTestCase(
+        SearchRNNFastTests)
+    schslowtests = unittest.defaultTestLoader.loadTestsFromTestCase(
+        SearchRNNSlowTests)
+    schmore = unittest.defaultTestLoader.loadTestsFromTestCase(
+        MoreSearchRNNTests)
+    beam = unittest.defaultTestLoader.loadTestsFromTestCase(PredictorTests)
+    morebeam = unittest.defaultTestLoader.loadTestsFromTestCase(
+        MorePredictorTests)
     fast = unittest.TestSuite()
     fast.addTest(lang_test_suite)
     fast.addTest(lang_util_test_suite)
     unittest.TextTestRunner().run(fast)
     unittest.TextTestRunner().run(enc)
     unittest.TextTestRunner().run(dptest)
-    unittest.TextTestRunner().run(trtest) #slow
+    unittest.TextTestRunner().run(trtest)  #slow
     unittest.TextTestRunner().run(pred)
     unittest.TextTestRunner().run(mantests)
-    unittest.TextTestRunner().run(premantests) #slow
-    unittest.TextTestRunner().run(bitests) #slow
-    unittest.TextTestRunner().run(multitests) #slow
-    unittest.TextTestRunner().run(wvtests) #slow
+    unittest.TextTestRunner().run(premantests)  #slow
+    unittest.TextTestRunner().run(bitests)  #slow
+    unittest.TextTestRunner().run(multitests)  #slow
+    unittest.TextTestRunner().run(wvtests)  #slow
     unittest.TextTestRunner().run(schtests)
     unittest.TextTestRunner().run(schslowtests)
     unittest.TextTestRunner().run(schmore)
     unittest.TextTestRunner().run(beam)
     unittest.TextTestRunner().run(morebeam)
-
