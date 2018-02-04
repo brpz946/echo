@@ -17,8 +17,7 @@ import manage
 import word_vectors as wv
 import basic_rnn
 import predictor as pr
-
-
+import validation as val
 class LangTest(unittest.TestCase):
     def test_add_word(self):
         '''Words added to a language should appear in word2index, word2count, index2word '''
@@ -386,7 +385,7 @@ class ManagerTests(unittest.TestCase):
     def test_basic_run(self):
         '''The model should learn to translate when the dataset consists of one phrase '''
         man = manage.Manager.basic_enc_dec_from_file(
-            "../data/testing/by_the_gods.txt", loglevel=logging.WARNING)
+            "../data/testing/by_the_gods.txt", loglevel=logging.WARNING,validate=False)
         man.trainer.train(100)
         dexsamp = man.l1.sentence2dex("by the gods !")
         pred = man.model.predict(dexsamp)
@@ -402,7 +401,7 @@ class ManagerTests(unittest.TestCase):
         man = manage.Manager.basic_enc_dec_from_file(
             "../data/testing/by_the_gods.txt",
             loglevel=logging.WARNING,
-            cuda=True)
+            cuda=True, validate=False)
         man.trainer.train(100)
         dexsamp = man.l1.sentence2dex("by the gods !")
         pred = man.model.predict(dexsamp)
@@ -474,13 +473,13 @@ class SearchRNNSlowTests(unittest.TestCase):
         names = []
         beforeshapes = []
         for name, param in self.model.named_parameters():
-            print("parameter: ", name)
+         #   print("parameter: ", name)
             names.append(name)
             before.append(param.data.tolist())
             beforeshapes.append(param.shape)
         trainer.train(1)
         for i, param in enumerate(self.model.parameters()):
-            print("comapring parameter ", names[i])
+          #  print("comapring parameter ", names[i])
             self.assertEqual(param.shape, beforeshapes[i])
             self.assertNotEqual(param.data.tolist(), before[i])
 
@@ -499,6 +498,10 @@ class MoreSearchRNNTests(unittest.TestCase):
 
     def test_search_basic_run(self):
         '''The model should learn to translate when the dataset consists of one phrase  on the gpu '''
+        if not torch.cuda.is_available():
+            print('skipping GPU test for lack of cuda')
+            return
+
 
         man = manage.Manager.basic_search_from_file(
             path="../data/testing/by_the_gods.txt",
@@ -554,8 +557,8 @@ class PredictorTests(unittest.TestCase):
             return probs, stateout
 
         predictor = pr.BeamPredictor(
-            process_src, advance_tgt, r=1, max_seq_len=20, tgt_vocab_size=6)
-        seqs, probs = predictor.predict(src_seq=[], k=2, w=2)
+            process_src, advance_tgt, r=1, max_seq_len=20, tgt_vocab_size=6,k=2,w=2)
+        seqs, probs = predictor.beam_search(src_seq=[])
         self.assertEqual(seqs[0], [1, 4, 2])
         self.assertEqual(seqs[1], [1, 3, 2])
         self.assertAlmostEquals(probs[0], math.log(0.4))
@@ -613,19 +616,30 @@ class MorePredictorTests(unittest.TestCase):
     # newpred=beam.predict([lang.SOS_TOKEN,5,lang.EOS_TOKEN],k=1,w=1 )[0]
     # #  import pdb; pdb.set_trace()
     # self.assertEqual(oldpred,newpred[0] )
+class DummyPredictor:
+    def predict(self,seq):
+        if seq == [1,3,2]:
+            return [1,6,7,8,9,10,2]
+        elif seq == [1,4,2]:
+            return [1,55,55,55,55,55,2]
 
-    def test_enc_dec_beam_consistancy_gpu(self):
-        '''
-        BeamPredictor with beam width 1 should produce the same result as the old greedy prediction function when used on the gpu
-        '''
-        self.model = self.model.cuda()
-        beam = self.model.beam_predictor()
-        oldpred = self.model.predict([lang.SOS_TOKEN, 5, lang.EOS_TOKEN])
-        newpred = beam.predict(
-            [lang.SOS_TOKEN, 5, lang.EOS_TOKEN], k=1, w=1)[0]
-        # import pdb; pdb.set_trace()
-        self.assertEqual(oldpred, newpred[0])
+class DummyPredictor2:
+     def predict(self,seq):
+        if seq == [1,3,2]:
+            return [1,6,7,8,9,10,2]
+        elif seq == [1,4,2]:
+            return [1,7,8,9,10,11,12,13,14,15,16,17,18,19,20,2]
 
+
+class BleuValidation(unittest.TestCase):
+    def test_bleu_val(self):
+        data=[ [[1,3,2],  [1,6,7,8,9,10,2]],
+             [[1,4,2],  [1,7,8,9,10,11,12,13,14,15,16,17,18,19,20,2]] 
+                ]
+    
+        validator=val.BleuValidator(data)
+        self.assertNotEqual(validator.score(DummyPredictor()),-11)
+        self.assertEqual(validator.score(DummyPredictor2()),-1)
 
 if __name__ == '__main__':
     lang_test_suite = unittest.defaultTestLoader.loadTestsFromTestCase(
@@ -653,21 +667,23 @@ if __name__ == '__main__':
     beam = unittest.defaultTestLoader.loadTestsFromTestCase(PredictorTests)
     morebeam = unittest.defaultTestLoader.loadTestsFromTestCase(
         MorePredictorTests)
+    bleuval = unittest.defaultTestLoader.loadTestsFromTestCase(BleuValidation)
     fast = unittest.TestSuite()
     fast.addTest(lang_test_suite)
     fast.addTest(lang_util_test_suite)
-    # unittest.TextTestRunner().run(fast)
-    # unittest.TextTestRunner().run(enc)
-    # unittest.TextTestRunner().run(dptest)
-    # unittest.TextTestRunner().run(trtest)  #slow
-    # unittest.TextTestRunner().run(pred)
-    # unittest.TextTestRunner().run(mantests)
-    # unittest.TextTestRunner().run(premantests)  #slow
-    # unittest.TextTestRunner().run(bitests)  #slow
-    # unittest.TextTestRunner().run(multitests)  #slow
-    # unittest.TextTestRunner().run(wvtests)  #slow
-    # unittest.TextTestRunner().run(schtests)
-    # unittest.TextTestRunner().run(schslowtests)
-    # unittest.TextTestRunner().run(schmore)
+    unittest.TextTestRunner().run(fast)
+    unittest.TextTestRunner().run(enc)
+    unittest.TextTestRunner().run(dptest)
+    unittest.TextTestRunner().run(trtest)  #slow
+    unittest.TextTestRunner().run(pred)
+    unittest.TextTestRunner().run(mantests)
+    unittest.TextTestRunner().run(premantests)  #slow
+    unittest.TextTestRunner().run(bitests)  #slow
+    unittest.TextTestRunner().run(multitests)  #slow
+    unittest.TextTestRunner().run(wvtests)  #slow
+    unittest.TextTestRunner().run(schtests)
+    unittest.TextTestRunner().run(schslowtests)
+    unittest.TextTestRunner().run(schmore)
     unittest.TextTestRunner().run(beam)
-    #unittest.TextTestRunner().run(morebeam)i #slow
+    unittest.TextTestRunner().run(morebeam) #slow
+    unittest.TextTestRunner().run(bleuval)

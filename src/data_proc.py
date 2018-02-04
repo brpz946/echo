@@ -80,7 +80,7 @@ class SupervisedTranslationBatch:
     def from_list(lseqs):
         '''
             Args:
-                --lseqs: a 3-deep list of integers whose  [i][j][k] element is the index of the  kth word of the ith sequence in the jth language in the batch
+                --lseqs: a 3-deep list of integers whose  [i][j][k] element is the index of the  kth word of the jth sequence in the ith language in the batch. Note that this ordering is different from that of SupervisedTranslationDataset!
         '''
         src, perm_src = TranslationBatch.from_list(lseqs[0])
         tgt, perm_tgt = TranslationBatch.from_list(lseqs[1])
@@ -135,10 +135,7 @@ class SupervisedTranslationDataset:
             random.shuffle(ip)
         for i in range((len(ip) - 1) // batchsize + 1):
             curbatchsize = min((i + 1) * batchsize, len(ip)) - i * batchsize
-            seqs = [[
-                ip[l][j]
-                for l in range(i * batchsize, i * batchsize + curbatchsize)
-            ] for j in [0, 1]]
+            seqs = [[ip[l][j] for l in range(i * batchsize, i * batchsize + curbatchsize) ] for j in [0, 1]] #reorder the sequences so [j][i][k] refers to kth word in ith sentence i jth language
             batches.append(SupervisedTranslationBatch.from_list(seqs))
         return batches
 
@@ -149,10 +146,11 @@ class SupervisedTranslationDataset:
             --prop: a number between 0 and 1
             --shuffle: a boolean.   Whether to suffle the data before extrating head.
         Returns:
-            --Head: A SupervisedTranslationDataset consisting of  proportion prop of the data
+            --Head: A 3-deep list consisting of  proportion prop of the data
         '''
         random.shuffle(self.lseq)
-        head_size = math.floor(prop * len(lseq))
-        head = lseq[:head_size]
-        lseq = lseq[head_size:]
+        head_size = math.floor(prop * len(self.lseq))
+        assert(head_size>0)
+        head = self.lseq[:head_size]
+        lseq = self.lseq[head_size:]
         return head

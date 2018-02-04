@@ -25,6 +25,8 @@ class BeamPredictor:
                     --A w by v LongTensor variable, where v is the tgt vocabulary size.  Entry (i,k) holds the incremental log probability (negative loss) predicted by the model if index k is the next to be added to the sequence represented by row i. 
                     --A w by r FloatTensor.  Row i is the next state predicted by the model for sequence i.
             --r: Length of the rows of rows of cur_state.  Model-dependent. 
+            --k: The number of predictions to output.
+            --w: The beam width
             --max_seq_len: The maximum sequence length that will be explored during the beam search.
             --tgt_vocab_size: size of the target vocabulary
             -cuda: Whether to use cuda.
@@ -33,27 +35,34 @@ class BeamPredictor:
     def __init__(self,
                  process_src,
                  advance_tgt,
-                 r,
+                 r, 
                  tgt_vocab_size,
-                 max_seq_len=30,
+                 k=1,
+                 w=1,
+                 max_seq_len=30, 
                  cuda=False):
         self.process_src = process_src
         self.advance_tgt = advance_tgt
         self.r = r
+        self.k=k
+        self.w=w
         self.tgt_vocab_size = tgt_vocab_size
         self.max_tgt_seq_len = max_seq_len
         self.cuda = cuda
 
-    def predict(self, src_seq, k, w):
+    def predict(self, src_seq):
+        return self.beam_search(src_seq)[0][-1] #We want the sequence scoring highest
+
+    def beam_search(self, src_seq ):
         '''
         Carry out a beam search.
         Args:
             --src_seq:  a list containing a sequence of input values
-            --k: The number of predictions to output.
-            --w: The beam width
         Returns:
             -A list of k lists, the predictions produced by the model for the input src_vals
         '''
+        k=self.k
+        w=self.w
         src_state = self.process_src(
             src_seq
         )  #src_state is used only by advance_output.  Thus, its contents need only be acceptable to that function.
@@ -130,10 +139,8 @@ class BeamPredictor:
             #  if incoming_index.data[0]==7236:
             #     import pdb; pdb.set_trace()
             history = new_history
-            if best_terminated.cur_size >= k and (
-                    q == 0
-                    or best_terminated.min_score() >= logprobs.data[0][0]
-            ):  # heap full and worst terminated better than best un-terminated or found no terminated this iteration
+            if best_terminated.cur_size >= k and (q == 0 or best_terminated.min_score() >= logprobs.data[0][0] ): 
+                # heap full and worst terminated better than best un-terminated or found no terminated this iteration
                 break
 
         seqs, finallogprobs = best_terminated.to_lists()

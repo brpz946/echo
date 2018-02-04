@@ -96,7 +96,7 @@ class EncoderDecoderRNN(nn.Module):
                 - A list of integers containing the predicted output sequence.
         '''
         predictor = self.beam_predictor()
-        return predictor.predict(in_seq, k=1, w=1)[0][0]
+        return predictor.predict(in_seq)
 
     ##functions for use with beam search
 

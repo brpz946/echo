@@ -8,8 +8,8 @@ import lang
 import enc_dec as ed
 import search_rnn
 import word_vectors
-
-
+import predictor
+import validation
 class Manager():
     '''
         Conceptually, this class is responsible for for organizing a run 
@@ -53,13 +53,14 @@ class Manager():
                         pretrained=False,
                         pre_src_path=None,
                         pre_tgt_path=None,
-                        model_constructor=ed.EncoderDecoderRNN.construct):
+                        model_constructor=ed.EncoderDecoderRNN.construct,
+                        validate=False):
         logging.getLogger().setLevel(loglevel)
         l1, l2, spairs = lang.read_langsv1(l1_name, l2_name, path, filt)
         lang.index_words_from_pairs(l1, l2, spairs)
         dataset = dp.SupervisedTranslationDataset.from_strings(spairs, l1, l2)
         #todo: add pretrained support here
-
+                
         model = model_constructor(
             src_vocab_size=l1.n_words,
             tgt_vocab_size=l2.n_words,
@@ -68,6 +69,16 @@ class Manager():
             hidden_dim=hidden_dim)
         if cuda:
             model = model.cuda()
+         
+        if validate: 
+            validation_data=dataset.split(0.1)
+            pred=model.beam_predictor()
+            validators=[validation.BleuValidator(validation_data)] 
+        else:
+            pred=None
+            validators=None
+
+
         trainer = tr.Trainer(
             model=model,
             lr=lr,
@@ -76,7 +87,9 @@ class Manager():
             report_interval=report_interval,
             cuda=cuda,
             reporter=reporting.TestPhraseReporter(model, l1, l2, testphrase),
-            opt=opt)
+            opt=opt,
+            predictor=pred,
+            validators=validators)
         return Manager(l1, l2, model, trainer)
 
     @staticmethod

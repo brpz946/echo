@@ -1,8 +1,11 @@
 import logging
 import numpy as np
 import torch
-import lang
+import math
 from torch.nn import Parameter
+import torch.nn as nn
+
+import lang
 PRINT_INTERVAL = 20000
 
 
@@ -81,9 +84,9 @@ class WordVectors:
                 1))
         weights.requires_grad = False  #pretrained
 
-        missing = torch.Tensor(
-            len(missing_word_set) + lang.NUM_RESERVED_INDEXES - 1,
-            self.dimension + lang.NUM_RESERVED_INDEXES - 1)
+        num_missing=len(missing_word_set) + lang.NUM_RESERVED_INDEXES - 1
+        missing = torch.Tensor( num_missing,  self.dimension + lang.NUM_RESERVED_INDEXES - 1)
+        nn.init.uniform(missing,-1/math.sqrt(num_missing),1/math.sqrt(num_missing))
         # the final two dimensions start zero expcept for for reserved symbols. Note that we do not give a vector to the null symbol,since it will never show up in sequence we process
         missing[:, -lang.NUM_RESERVED_INDEXES + 1:] = 0
         for i in range(lang.NUM_RESERVED_INDEXES - 1):

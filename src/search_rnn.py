@@ -146,7 +146,7 @@ class SearchRNN(nn.Module):
            Greedy prediction
         '''
         predictor = self.beam_predictor()
-        return predictor.predict(in_seq, k=1, w=1)[0][0]
+        return predictor.predict(in_seq)
 
     def process_src(self, src_seq, src_length=None):
         cuda = next(self.parameters()).is_cuda

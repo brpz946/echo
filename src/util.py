@@ -1,6 +1,7 @@
 import heapq
 import torch
 
+import lang
 
 def perm_compose(p, q):
     return torch.LongTensor([p[q[i]] for i in range(len(p))])
@@ -37,6 +38,9 @@ class FixedHeap:
         return self.heap[0][0]
 
     def to_lists(self):
+        '''
+        Converts the heap to two lists, returing items in increasing order
+        '''
         items = []
         scores = []
         while len(self.heap) > 0:
@@ -44,3 +48,29 @@ class FixedHeap:
             items.append(entry[2])
             scores.append(entry[0])
         return items, scores
+
+def remove_sos_eos2(sentences):
+    ''' 
+        Args:
+            --A 2 deep list of integers. The element [i][k] is the kth word in the ith phrase. 
+        Returns: Same list with leading lang.SOS_TOKEN and trailing lang.EOS_TOKEN removed
+    '''
+    pruned_sentences=[]
+    for sentence in sentences:
+        assert(sentence[0]==lang.SOS_TOKEN)
+        assert(sentence[len(sentence)-1]==lang.EOS_TOKEN)
+        pruned_sentences.append(sentence[1:len(sentence)-1])
+    return pruned_sentences 
+
+def remove_sos_eos3(sentences):
+    '''
+        Args:
+            --A 3 deep list of integers. The element [i][j][k] is the kth word in  phrase [i][j]. 
+        Returns: Same list with leading lang.SOS_TOKEN and trailing lang.EOS_TOKEN removed
+    '''
+    out=[]
+    for row in sentences:
+        out.append( remove_sos_eos2(row) )
+    return out
+
+
