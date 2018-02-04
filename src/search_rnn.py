@@ -69,7 +69,6 @@ class SearchRNN(nn.Module):
                 padding_knockout=None):
         e_batch = self.afunc(cur_tgt_hidden_layer[:num_continuing, :, :],
                              Uh[:num_continuing, :, :])
-        #import pdb; pdb.set_trace()
         if padding_knockout is not None:
             e_batch += padding_knockout[:num_continuing, :, :]
         alpha_batch = self.softmax(e_batch)
@@ -79,7 +78,6 @@ class SearchRNN(nn.Module):
         )  #multiplication here is pointwise and broadcast. #result should have dimensions num_continuing by 2*src_hidden_dim
         c_batch = c_batch.view(num_continuing, 1, 2 * self.src_hidden_dim)
 
-        #import pdb; pdb.set_trace()
         hidden_out, cur_tgt_hidden_layer = self.decoder(
             cur_tgt,
             cur_tgt_hidden_layer[:num_continuing, :, :].transpose(0, 1),
@@ -144,6 +142,9 @@ class SearchRNN(nn.Module):
         return self.loss(out.view(-1, self.tgt_vocab_size), goal.view(-1))
 
     def predict(self, in_seq):
+        '''
+           Greedy prediction
+        '''
         predictor = self.beam_predictor()
         return predictor.predict(in_seq, k=1, w=1)[0][0]
 
@@ -166,6 +167,9 @@ class SearchRNN(nn.Module):
         return src_state
 
     def advance_tgt(self, src_state, first, cur_state, index):
+        '''
+        For use by the BeamPredictor function in the predictor module.
+        '''
         src_hidden_seq = src_state[0]
         Uh = src_state[1]
         if first:
@@ -209,8 +213,9 @@ class SearchRNN(nn.Module):
 
 class AFunc(nn.Module):
     '''
+   Compute the  attention weights.
         Input:
-            --tgt_hidden_past: Variable with dimenisons num_continuing by n_layers by tgt_hidden_dim. Provides the value for batches in range(num_continuing)  of the last hidden layer of the decoder in the previous timestep (i.e. timestep i-1 in the paper).
+            --tgt_hidden_past: Variable with dimensions num_continuing by n_layers by tgt_hidden_dim. Provides the value for batches in range(num_continuing)  of the last hidden layer of the decoder in the previous timestep (i.e. timestep i-1 in the paper).
             --Uh: Variable with dimensions num_continuing by src_max_sequence_length by n_layers*tgt_hidden_dim
         Returns:
             -- Variable with dimension num_continuing by src_max_seq_len by 1.  Its (k,j) entry is the value of e_{ij} for the kth batch.  See pg 3 in  Bahdanau et al. 

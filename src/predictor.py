@@ -1,4 +1,4 @@
-import heapq
+import util
 import torch
 from torch.autograd import Variable
 
@@ -66,7 +66,7 @@ class BeamPredictor:
             logprobs = logprobs.cuda()
             cur_state = cur_state.cuda()
 
-        best_terminated = FixedHeap(k)
+        best_terminated = util.FixedHeap(k)
         cur_depth = 1
 
         while True:
@@ -140,32 +140,3 @@ class BeamPredictor:
         return seqs, finallogprobs
 
 
-class FixedHeap:
-    def __init__(self, k):
-        self.k = k
-        self.cur_size = 0
-        self.seen_so_far = 0
-        self.heap = []
-
-    def try_add(self, item, score):
-        if self.cur_size < self.k:
-            heapq.heappush(self.heap, (score, self.seen_so_far, item))
-            self.cur_size += 1
-        else:
-            if score > self.heap[0][0]:
-                heapq.heapreplace(self.heap, (score, self.seen_so_far, item))
-
-        assert (len(self.heap) <= self.k)
-        self.seen_so_far += 1
-
-    def min_score(self):
-        return self.heap[0][0]
-
-    def to_lists(self):
-        items = []
-        scores = []
-        while len(self.heap) > 0:
-            entry = heapq.heappop(self.heap)
-            items.append(entry[2])
-            scores.append(entry[0])
-        return items, scores
