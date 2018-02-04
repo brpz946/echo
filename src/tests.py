@@ -492,7 +492,7 @@ class MoreSearchRNNTests(unittest.TestCase):
 
 
     def test_search_basic_run(self):
-        '''The model should learn to translate when the dataset consists of one phrase u on the gpu '''
+        '''The model should learn to translate when the dataset consists of one phrase  on the gpu '''
 
         man = manage.Manager.basic_search_from_file(
             path="../data/testing/by_the_gods.txt", loglevel=logging.WARNING,cuda=True )
@@ -638,19 +638,19 @@ if __name__ == '__main__':
     fast = unittest.TestSuite()
     fast.addTest(lang_test_suite)
     fast.addTest(lang_util_test_suite)
-    # unittest.TextTestRunner().run(fast)
-    # unittest.TextTestRunner().run(enc)
-    # unittest.TextTestRunner().run(dptest)
-    # unittest.TextTestRunner().run(trtest) #slow
-    # unittest.TextTestRunner().run(pred)
-    # unittest.TextTestRunner().run(mantests)
-    # unittest.TextTestRunner().run(premantests) #slow
-    # unittest.TextTestRunner().run(bitests) #slow
-    # unittest.TextTestRunner().run(multitests) #slow
-    # unittest.TextTestRunner().run(wvtests) #slow
-    # #unittest.TextTestRunner().run(schtests)
-    # #unittest.TextTestRunner().run(schslowtests)
-    # unittest.TextTestRunner().run(schmore)
+    unittest.TextTestRunner().run(fast)
+    unittest.TextTestRunner().run(enc)
+    unittest.TextTestRunner().run(dptest)
+    unittest.TextTestRunner().run(trtest) #slow
+    unittest.TextTestRunner().run(pred)
+    unittest.TextTestRunner().run(mantests)
+    unittest.TextTestRunner().run(premantests) #slow
+    unittest.TextTestRunner().run(bitests) #slow
+    unittest.TextTestRunner().run(multitests) #slow
+    unittest.TextTestRunner().run(wvtests) #slow
+    unittest.TextTestRunner().run(schtests)
+    unittest.TextTestRunner().run(schslowtests)
+    unittest.TextTestRunner().run(schmore)
     unittest.TextTestRunner().run(beam)
     unittest.TextTestRunner().run(morebeam)
 
