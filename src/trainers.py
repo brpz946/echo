@@ -47,9 +47,9 @@ class Trainer:
         self.opt = opt
         ltime=localtime()
         if record_path== None:
-            record_path="../run_logs/run_log_"+strftime("%Y-%m-%dt:%H:%M:%S",ltime)
+            record_path="../run_logs/run_log_"+strftime("%Y-%m-%dt-%H-%M-%S",ltime)
         if model_path==None:
-            model_path="/run_logs/best_model_"+strftime("%Y-%m-%dt:%H:%M:%S",ltime)
+            model_path= "../run_logs/best_model_"+strftime("%Y-%m-%dt-%H-%M-%S",ltime)
         self.model_path=model_path
         self.record_path=record_path
         self.validators=validators
@@ -72,7 +72,14 @@ class Trainer:
         with open(self.record_path,"a") as f:
             f.write(self.record_headings())
 
-        logging.info("Startng Training")
+        scores,bestscore=self.run_validators(bestscore)
+        logging.info("Starting Training")
+        if self.cuda:
+            logging.info("Cuda is enabled.")
+        else:
+            logging.info("Cuda is disabled.")
+                
+
         for step in range(steps):
             loss = train_step(batch=batches[i], model=self.model, optimizer=optimizer, cuda=self.cuda)
             interval_loss += loss
@@ -104,10 +111,14 @@ class Trainer:
             for i,validator in enumerate(self.validators):
                 scores.append(validator.score(self.predictor))
                     
-            if score[0] < bestscore:
-                logging.debug("Current score "+ str(score[0])+" better than previous best score of "+bestscore+".  Saving model." )
-                bestscore=score[0]
+            if scores[0] < bestscore:
+                logging.debug("Current score "+ str(scores[0])+" better than previous best score of "+str(bestscore)+"." )
+                logging.info("****Saving Model*****")
+                bestscore=scores[0]
                 torch.save(self.model.state_dict(),self.model_path) 
+            else:
+                logging.debug("Current score "+ str(scores[0])+" worse  than previous best score of "+str(bestscore)+"." )
+
         return (scores,bestscore)
 
     def record_headings(self):

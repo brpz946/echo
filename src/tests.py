@@ -631,6 +631,15 @@ class DummyPredictor2:
             return [1,7,8,9,10,11,12,13,14,15,16,17,18,19,20,2]
 
 
+class DummyPredictor3:
+     def predict(self,seq):
+        if seq == [1,3,2]:
+            return [1,6,7,2]
+        elif seq == [1,4,2]:
+            return [1,7,8,2]
+
+
+
 class BleuValidation(unittest.TestCase):
     def test_bleu_val(self):
         data=[ [[1,3,2],  [1,6,7,8,9,10,2]],
@@ -638,8 +647,9 @@ class BleuValidation(unittest.TestCase):
                 ]
     
         validator=val.BleuValidator(data)
-        self.assertNotEqual(validator.score(DummyPredictor()),-11)
+        self.assertNotEqual(validator.score(DummyPredictor()),-1)
         self.assertEqual(validator.score(DummyPredictor2()),-1)
+        self.assertEqual(validator.score(DummyPredictor3() ),0)
 
 if __name__ == '__main__':
     lang_test_suite = unittest.defaultTestLoader.loadTestsFromTestCase(
@@ -671,19 +681,20 @@ if __name__ == '__main__':
     fast = unittest.TestSuite()
     fast.addTest(lang_test_suite)
     fast.addTest(lang_util_test_suite)
-    unittest.TextTestRunner().run(fast)
-    unittest.TextTestRunner().run(enc)
-    unittest.TextTestRunner().run(dptest)
-    unittest.TextTestRunner().run(trtest)  #slow
-    unittest.TextTestRunner().run(pred)
-    unittest.TextTestRunner().run(mantests)
-    unittest.TextTestRunner().run(premantests)  #slow
-    unittest.TextTestRunner().run(bitests)  #slow
-    unittest.TextTestRunner().run(multitests)  #slow
-    unittest.TextTestRunner().run(wvtests)  #slow
-    unittest.TextTestRunner().run(schtests)
-    unittest.TextTestRunner().run(schslowtests)
-    unittest.TextTestRunner().run(schmore)
-    unittest.TextTestRunner().run(beam)
-    unittest.TextTestRunner().run(morebeam) #slow
+    # unittest.TextTestRunner().run(fast)
+    # unittest.TextTestRunner().run(enc)
+    # unittest.TextTestRunner().run(dptest)
+    # unittest.TextTestRunner().run(trtest)  #slow
+    # unittest.TextTestRunner().run(pred)
+    # unittest.TextTestRunner().run(mantests)
+    # unittest.TextTestRunner().run(premantests)  #slow
+    # unittest.TextTestRunner().run(bitests)  #slow
+    # unittest.TextTestRunner().run(multitests)  #slow
+    # unittest.TextTestRunner().run(wvtests)  #slow
+    # unittest.TextTestRunner().run(schtests)
+    # unittest.TextTestRunner().run(schslowtests)
+    # unittest.TextTestRunner().run(schmore)
+    # unittest.TextTestRunner().run(beam)
+    # unittest.TextTestRunner().run(morebeam) #slow
+    logging.getLogger().setLevel(logging.DEBUG)
     unittest.TextTestRunner().run(bleuval)
