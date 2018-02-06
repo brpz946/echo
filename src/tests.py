@@ -729,6 +729,11 @@ class BatchPredTests2(unittest.TestCase):
             n_layers=2)
 
 
+class NoPackRNNTests(unittest.TestCase):
+    def test_basic(self):
+        rnn=basic_rnn.RNN(vocab_size=5,embedding_dim=1,hidden_dim=1,pack=False)
+        rnn(dp.TranslationBatch(Variable( torch.LongTensor([1]).view(1,1) ),[1]) )
+
 
 if __name__ == '__main__':
     lang_test_suite = unittest.defaultTestLoader.loadTestsFromTestCase(
@@ -758,24 +763,26 @@ if __name__ == '__main__':
         MorePredictorTests)
     bleuval = unittest.defaultTestLoader.loadTestsFromTestCase(BleuValidation)
     bp = unittest.defaultTestLoader.loadTestsFromTestCase(BatchPredTests)
+    nopack = unittest.defaultTestLoader.loadTestsFromTestCase(NoPackRNNTests)
     fast = unittest.TestSuite()
     fast.addTest(lang_test_suite)
     fast.addTest(lang_util_test_suite)
     unittest.TextTestRunner().run(fast)
     unittest.TextTestRunner().run(enc)
     unittest.TextTestRunner().run(dptest)
-    unittest.TextTestRunner().run(trtest)  #slow
+    #unittest.TextTestRunner().run(trtest)  #slow
     unittest.TextTestRunner().run(pred)
     unittest.TextTestRunner().run(mantests)
-    unittest.TextTestRunner().run(premantests)  #slow
-    unittest.TextTestRunner().run(bitests)  #slow
-    unittest.TextTestRunner().run(multitests)  #slow
-    unittest.TextTestRunner().run(wvtests)  #slow
+    #unittest.TextTestRunner().run(premantests)  #slow
+    #unittest.TextTestRunner().run(bitests)  #slow
+   # unittest.TextTestRunner().run(multitests)  #slow
+    #unittest.TextTestRunner().run(wvtests)  #slow
     unittest.TextTestRunner().run(schtests)
-    unittest.TextTestRunner().run(schslowtests)
+    #unittest.TextTestRunner().run(schslowtests) #sloW
     unittest.TextTestRunner().run(schmore)
     unittest.TextTestRunner().run(beam)
-    unittest.TextTestRunner().run(morebeam) slow
     logging.getLogger().setLevel(logging.DEBUG)
-    unittest.TextTestRunner().run(bleuval)
+   # unittest.TextTestRunner().run(bleuval)
     unittest.TextTestRunner().run(bp)
+    unittest.TextTestRunner().run(nopack)
+    

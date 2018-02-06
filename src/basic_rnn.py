@@ -28,6 +28,7 @@ class RNN(nn.Module):
             -n_layers: number of layers in recurrent neural net.  See Graves (2014)
            -bidirectional: whether to use a bidirectional RNN 
            -extra_input_dim: The dimension of the extra input vectors, which are received as an additional piece of input and concatenated to the word embeddings.   
+           -pack: whether to pack the sequence before feeding it to the neural network
         inputs:
             -batch: a translation batch of input data 
             -code: initial hidden units.  If this RNN is a decoder, these are the hidden units  from the last layer of the encoder.  Should be 3d with dimensions n_layers by batch_size by hidden_dim
@@ -49,6 +50,7 @@ class RNN(nn.Module):
         self.n_layers = n_layers
         self.hidden_dim = hidden_dim
         self.extra_input_dim = extra_input_dim
+        self.pack=pack
         self.embedding = nn.Embedding(vocab_size, embedding_dim)
         self.gru = nn.GRU(
             input_size=embedding_dim + extra_input_dim,
@@ -77,14 +79,14 @@ class RNN(nn.Module):
     def forward(self, batch, code=None, extra_input=None):
         embedded = self.embed(batch.seqs)
         if self.extra_input_dim > 0:
-            #import pdb; pdb.set_trace()
             embedded = torch.cat((embedded, extra_input), 2)
-
-        packed = rnn.pack_padded_sequence(
-            embedded, batch.lengths, batch_first=True)
-        if code is not None:
-            hidden_seq, final_hidden = self.gru(packed, code)
+        if self.pack:
+            sequence = rnn.pack_padded_sequence(embedded, batch.lengths, batch_first=True)
         else:
-            hidden_seq, final_hidden = self.gru(packed)
-        #hidden_seq is packed sequence.  when unpacked has dimension batch_size by (max) seq_length by hidden_dim*num_directions
+            sequence=embedded
+        if code is not None:
+            hidden_seq, final_hidden = self.gru(sequence, code)
+        else:
+            hidden_seq, final_hidden = self.gru(sequence)
+        #hidden_seq is packed sequence.   has dimension batch_size by (max) seq_length by hidden_dim*num_directions
         return hidden_seq, final_hidden
