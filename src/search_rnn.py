@@ -148,13 +148,10 @@ class SearchRNN(nn.Module):
         predictor = self.beam_predictor()
         return predictor.predict(in_seq)
 
-    def process_src(self, src_seq, src_length=None):
+    def process_src(self, src_seqs, src_lengths):
         cuda = next(self.parameters()).is_cuda
-        if src_length == None:
-            src_length = len(src_seq)
-        src_length = [src_length]
-        in_seq = dp.TranslationBatch(
-            Variable(torch.LongTensor(src_seq)).view(1, -1), src_length)
+        l_src_lengths = src_lengths.tolist()
+        in_seq = dp.TranslationBatch(Variable(src_seqs, l_src_lengths)
         if cuda:
             in_seq = in_seq.cuda()
         src_hidden_seq, _ = self.encoder(in_seq)

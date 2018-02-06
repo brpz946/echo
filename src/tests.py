@@ -651,6 +651,85 @@ class BleuValidation(unittest.TestCase):
         self.assertEqual(validator.score(DummyPredictor2()),-1)
         self.assertEqual(validator.score(DummyPredictor3() ),0)
 
+
+class BatchPredTests(unittest.TestCase):
+
+    def test_batch_search(self):
+        '''
+            Batch search should behave as expected when applied to synthetic data
+        '''
+        def process_src(src_sec,src_len):
+            return src_sec
+
+        def advance_tgt(src_states,first, cur_states, index):
+            num_seqs=index.shape[0]
+            probs = Variable(torch.Tensor(num_seqs, 6).fill_(0))
+            for i in range(num_seqs):
+                if src_states.data[i,0]==3:
+                    if index.data[i] == 1:
+                        probs[i, :] = torch.log(Variable(torch.Tensor([0, 0, 0, 0.6, 0.4, 0])))
+                    elif index.data[i] == 3:
+                        probs[i, :] = torch.log(Variable(torch.Tensor([0, 0, 0.9, 0, 0, 0.1])))
+                    elif index.data[i] == 4:
+                        probs[i, :] = torch.log(Variable(torch.Tensor([0, 0, 1, 0, 0, 0])))
+                    elif index.data[i] == 5:
+                        probs[i, :] = torch.log(Variable(torch.Tensor([0, 0, 0, 0, 0, 1])))
+                    else:
+                        self.assertEqual(0, 1)
+                elif src_states.data[i,0]==4:
+                    if index.data[i] == 1:
+                        probs[i, :] = torch.log(Variable(torch.Tensor([0, 0, 0, 0.4, 0.6, 0])))
+                    elif index.data[i] == 3:
+                        probs[i, :] = torch.log(Variable(torch.Tensor([0, 0, 0.9, 0, 0, 0.1])))
+                    elif index.data[i] == 4:
+                        probs[i, :] = torch.log(Variable(torch.Tensor([0, 0, 1, 0, 0, 0])))
+                    elif index.data[i] == 5:
+                        probs[i, :] = torch.log(Variable(torch.Tensor([0, 0, 0, 0, 0, 1])))
+                    else:
+                        self.assertEqual(0, 1)
+                elif src_states.data[i,0] == 5:
+                    probs[i,:]= torch.log(Variable(torch.Tensor([0, 0, 1, 0, 0, 0])))
+                else :
+                    self.assertEqual(0,1)
+            stateout = Variable(torch.Tensor(num_seqs, 1))
+            return probs, stateout
+
+        predictor = pr.BatchPredictor(process_src,advance_tgt, r=1, tgt_vocab_size=6)
+        seqs, logprob_history,lengths,logprobs = predictor.search(src_seqs=Variable(torch.Tensor([[3],[4],[5]])), src_lengths=Variable(torch.Tensor([1,1,1])))
+
+        l=lengths.data.tolist()
+        self.assertEqual(l,[3,3,2])
+        self.assertEqual(seqs[0][:l[0]].data.tolist(), [1, 3, 2])
+        self.assertEqual(seqs[1][:l[1]].data.tolist(), [1, 4, 2])
+        self.assertEqual(seqs[2][:l[2]].data.tolist(), [1,  2])
+        self.assertAlmostEquals(logprobs.data[0], math.log(0.54))
+        self.assertAlmostEqual(logprobs.data[1], math.log(0.6))
+        self.assertAlmostEqual(logprobs.data[2], 0)
+
+
+class BatchPredTests2(unittest.TesCase):
+    def setUp(self):
+        l1, l2, spairs = lang.read_langsv1('eng', 'fra',
+                                           '../data/eng-fra_tut/eng-fra.txt')
+        lang.index_words_from_pairs(l1, l2, spairs)
+        self.ds = dp.SupervisedTranslationDataset.from_strings(spairs, l1, l2)
+        self.model = ed.EncoderDecoderRNN(
+            l1.n_words,
+            l2.n_words,
+            src_embedding_dim=100,
+            tgt_embedding_dim=100,
+            hidden_dim=100)
+        self.model2 = search_rnn.SearchRNN(
+            src_vocab_size=l1.n_words,
+            tgt_vocab_size=l2.n_words,
+            src_embedding_dim=100,
+            tgt_embedding_dim=100,
+            src_hidden_dim=100,
+            tgt_hidden_dim=100,
+            n_layers=2)
+
+
+
 if __name__ == '__main__':
     lang_test_suite = unittest.defaultTestLoader.loadTestsFromTestCase(
         LangTest)
@@ -678,6 +757,7 @@ if __name__ == '__main__':
     morebeam = unittest.defaultTestLoader.loadTestsFromTestCase(
         MorePredictorTests)
     bleuval = unittest.defaultTestLoader.loadTestsFromTestCase(BleuValidation)
+    bp = unittest.defaultTestLoader.loadTestsFromTestCase(BatchPredTests)
     fast = unittest.TestSuite()
     fast.addTest(lang_test_suite)
     fast.addTest(lang_util_test_suite)
@@ -697,4 +777,5 @@ if __name__ == '__main__':
     # unittest.TextTestRunner().run(beam)
     # unittest.TextTestRunner().run(morebeam) #slow
     logging.getLogger().setLevel(logging.DEBUG)
-    unittest.TextTestRunner().run(bleuval)
+   # unittest.TextTestRunner().run(bleuval)
+    unittest.TextTestRunner().run(bp)
