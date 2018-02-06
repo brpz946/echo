@@ -34,7 +34,7 @@ class RNN(nn.Module):
             -code: initial hidden units.  If this RNN is a decoder, these are the hidden units  from the last layer of the encoder.  Should be 3d with dimensions n_layers by batch_size by hidden_dim
             -extra_input: should have dimension batchsize by seqlength by extra_input_dim
         outputs:
-            -the predictions at every time step in packed form (main output of decoder RNNs)
+            -the predictions at every time step (in packed form if pack==True) (main output of decoder RNNs)
             -final hidden units of each layer  (main output of encoder RNNs). Has dimensions (num_layers * num_directions, batch, hidden_size)
     '''
 
@@ -76,12 +76,15 @@ class RNN(nn.Module):
                 seqs, self.missing, self.missing_dict, dimension)
         return embedded
 
-    def forward(self, batch, code=None, extra_input=None):
-        embedded = self.embed(batch.seqs)
+    def forward(self, seqs, code=None, extra_input=None,lengths=None):
+        '''
+            Note that lengths is unnecsary when pack=False
+        '''
+        embedded = self.embed(seqs)
         if self.extra_input_dim > 0:
             embedded = torch.cat((embedded, extra_input), 2)
         if self.pack:
-            sequence = rnn.pack_padded_sequence(embedded, batch.lengths, batch_first=True)
+            sequence = rnn.pack_padded_sequence(embedded, lengths, batch_first=True)
         else:
             sequence=embedded
         if code is not None:

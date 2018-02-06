@@ -53,7 +53,8 @@ class SearchRNN(nn.Module):
             n_layers=n_layers,
             bidirectional=False,
             pretrained_embedding=pre_tgt_embedding,
-            extra_input_dim=2 * src_hidden_dim)
+            extra_input_dim=2 * src_hidden_dim,
+            pack=False)
         self.U = nn.Linear(2 * src_hidden_dim, n_layers * tgt_hidden_dim)
         self.loss = nn.CrossEntropyLoss(ignore_index=0)  #ignore padding
         self.afunc = AFunc(tgt_hidden_dim, n_layers)
@@ -65,7 +66,7 @@ class SearchRNN(nn.Module):
                 cur_tgt_hidden_layer,
                 src_hidden_seq,
                 Uh,
-                cur_tgt,
+                cur_tgt_col,
                 padding_knockout=None):
         e_batch = self.afunc(cur_tgt_hidden_layer[:num_continuing, :, :],
                              Uh[:num_continuing, :, :])
@@ -78,14 +79,10 @@ class SearchRNN(nn.Module):
         )  #multiplication here is pointwise and broadcast. #result should have dimensions num_continuing by 2*src_hidden_dim
         c_batch = c_batch.view(num_continuing, 1, 2 * self.src_hidden_dim)
 
-        hidden_out, cur_tgt_hidden_layer = self.decoder(
-            cur_tgt,
-            cur_tgt_hidden_layer[:num_continuing, :, :].transpose(0, 1),
-            extra_input=c_batch)
+        hidden_out, cur_tgt_hidden_layer = self.decoder(cur_tgt_col,code=cur_tgt_hidden_layer[:num_continuing, :, :].transpose(0, 1), extra_input=c_batch)
         cur_tgt_hidden_layer = cur_tgt_hidden_layer.transpose(0, 1)
         # Need to mess around with tranposes to use Afunc.  I keep batchfirst since afunc needs to use a view to combine the n_layers and tgt_hidden_dim dimensions
         # import pdb;  pdb.set_trace()
-        hidden_out, _ = rnn.pad_packed_sequence(hidden_out, batch_first=True)
         #hidden_out should have dimensions num_continuing by 1 by tgt_hidden_dim
         return hidden_out, cur_tgt_hidden_layer
 
@@ -95,7 +92,7 @@ class SearchRNN(nn.Module):
         tgt_max_seq_len = batch.tgt.seqs.shape[1]
 
         #import pdb; pdb.set_trace()
-        src_hidden_seq, _ = self.encoder(batch.src)
+        src_hidden_seq, _ = self.encoder(batch.src.seqs,lengths=batch.src.lengths)
         src_hidden_seq, _ = rnn.pad_packed_sequence(
             src_hidden_seq, batch_first=True)
         src_hidden_seq = src_hidden_seq[
@@ -104,30 +101,25 @@ class SearchRNN(nn.Module):
         Uh = self.U(
             src_hidden_seq
         )  #has dimension batchsize by src_max_seq_length by n_layers*tgt_hidden_dim
-        cur_tgt_hidden_layer = Variable(
-            src_hidden_seq.data.new(batchsize, self.decoder.n_layers,
-                                    self.decoder.hidden_dim).zero_())
+        cur_tgt_hidden_layer = Variable(src_hidden_seq.data.new(batchsize, self.decoder.n_layers,self.decoder.hidden_dim).zero_())
 
-        padding_knockout = Variable(
-            src_hidden_seq.data.new(batchsize, src_max_seq_len, 1).zero_())
+        padding_knockout = Variable(src_hidden_seq.data.new(batchsize, src_max_seq_len, 1).zero_())
         for k in range(batchsize):
             if batch.src.lengths[k] < src_max_seq_len:
                 padding_knockout[k, batch.src.lengths[k]:, 0] = -float("inf")
 
         num_continuing = batchsize  # at the current timestep, the number of sequences that have yet to terminate
-        decoder_output = Variable(
-            src_hidden_seq.data.new(batchsize, tgt_max_seq_len,
-                                    self.tgt_hidden_dim).zero_())
+        decoder_output = Variable(src_hidden_seq.data.new(batchsize, tgt_max_seq_len,self.tgt_hidden_dim).zero_())
         for i in range(tgt_max_seq_len):
             while batch.tgt.lengths[num_continuing - 1] <= i:
                 num_continuing -= 1
             assert (num_continuing > 0)
-            cur_tgt = batch.tgt.first_k_at_t(k=num_continuing, t=i)
+            cur_tgt_col = batch.tgt.seqs[:num_continuing,i].contiguous().view(-1,1)   
             hidden_out, cur_tgt_hidden_layer = self.advance(
                 num_continuing=num_continuing,
                 cur_tgt_hidden_layer=cur_tgt_hidden_layer,
                 src_hidden_seq=src_hidden_seq,
-                cur_tgt=cur_tgt,
+                cur_tgt_col=cur_tgt_col,
                 Uh=Uh,
                 padding_knockout=padding_knockout)
 
@@ -179,15 +171,14 @@ class SearchRNN(nn.Module):
             cur_tgt_hidden_layer = cur_state.view(
                 width, self.decoder.n_layers, self.decoder.hidden_dim
             )  #no need to transpose cur_gt_hidden layer: advance does that.
-        cur_tgt = dp.TranslationBatch(
-            index.view(-1, 1),
-            torch.ones(index.shape[0]).long().tolist())
+        cur_tgt_col = index.view(-1, 1),
+            
         #import pdb; pdb.set_trace()
         out, cur_tgt_hidden_layer = self.advance(
             num_continuing=width,
             cur_tgt_hidden_layer=cur_tgt_hidden_layer,
             src_hidden_seq=src_hidden_seq,
-            cur_tgt=cur_tgt,
+            cur_tgt_col=cur_tgt_col,
             Uh=Uh,
             padding_knockout=None)
         out = out.view(width, self.decoder.hidden_dim)

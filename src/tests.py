@@ -144,13 +144,13 @@ class EncDecTest(unittest.TestCase):
         input_padded = ag.Variable(
             torch.LongTensor([[1, 2, 3, 4], [1, 0, 0, 0]]))
         batch = dp.TranslationBatch(input_padded, [3, 1])
-        _, code = encoder(batch)
+        _, code = encoder(batch.seqs,lengths=batch.lengths)
         #print(code)
         decoder = basic_rnn.RNN(5, 6, 7)
         correct_output_padded = ag.Variable(
             torch.LongTensor([[1, 2, 3, 4], [1, 0, 0, 0]]))
         batch2 = dp.TranslationBatch(correct_output_padded, [4, 1])
-        out, _ = decoder(batch2, code)
+        out, _ = decoder(batch2.seqs, code,lengths=batch2.lengths)
 
     def test_rnn_with_extra_input(self):
         '''  
@@ -162,7 +162,7 @@ class EncDecTest(unittest.TestCase):
         extra_in = ag.Variable(torch.Tensor(2, 4, 1))
         extra_in.requires_grad = True
         batch = dp.TranslationBatch(input_padded, [3, 1])
-        _, code = encoder(batch, extra_input=extra_in)
+        _, code = encoder(batch.seqs, extra_input=extra_in,lengths=batch.lengths)
         #
 
     def test_basic_encoder_decoder2(self):
@@ -732,7 +732,7 @@ class BatchPredTests2(unittest.TestCase):
 class NoPackRNNTests(unittest.TestCase):
     def test_basic(self):
         rnn=basic_rnn.RNN(vocab_size=5,embedding_dim=1,hidden_dim=1,pack=False)
-        rnn(dp.TranslationBatch(Variable( torch.LongTensor([1]).view(1,1) ),[1]) )
+        rnn(Variable( torch.LongTensor([1]).view(1,1) ),lengths=[1] )
 
 
 if __name__ == '__main__':
@@ -770,15 +770,15 @@ if __name__ == '__main__':
     unittest.TextTestRunner().run(fast)
     unittest.TextTestRunner().run(enc)
     unittest.TextTestRunner().run(dptest)
-    #unittest.TextTestRunner().run(trtest)  #slow
+    unittest.TextTestRunner().run(trtest)  #slow
     unittest.TextTestRunner().run(pred)
     unittest.TextTestRunner().run(mantests)
-    #unittest.TextTestRunner().run(premantests)  #slow
-    #unittest.TextTestRunner().run(bitests)  #slow
-   # unittest.TextTestRunner().run(multitests)  #slow
-    #unittest.TextTestRunner().run(wvtests)  #slow
+    unittest.TextTestRunner().run(premantests)  #slow
+    unittest.TextTestRunner().run(bitests)  #slow
+    unittest.TextTestRunner().run(multitests)  #slow
+    unittest.TextTestRunner().run(wvtests)  #slow
     unittest.TextTestRunner().run(schtests)
-    #unittest.TextTestRunner().run(schslowtests) #sloW
+    unittest.TextTestRunner().run(schslowtests) #sloW
     unittest.TextTestRunner().run(schmore)
     unittest.TextTestRunner().run(beam)
     logging.getLogger().setLevel(logging.DEBUG)

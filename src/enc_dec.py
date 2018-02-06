@@ -64,9 +64,9 @@ class EncoderDecoderRNN(nn.Module):
 
     def encode_decode(self, batch):
         batchsize = batch.perm.shape[0]
-        _, code = self.encoder(batch.src)
+        _, code = self.encoder(batch.src.seqs,lengths=batch.src.lengths)
         code = code[:, batch.perm, :]
-        hidden_seq, _ = self.decoder(batch.tgt, code)
+        hidden_seq, _ = self.decoder(batch.tgt.seqs, code, lengths=batch.tgt.lengths)
         padded_hidden_seq, _ = rnn.pad_packed_sequence(
             hidden_seq, batch_first=True
         )  #has dimension  batchsize *sequencelength *hidden_size
@@ -105,11 +105,9 @@ class EncoderDecoderRNN(nn.Module):
             src_length = len(src_seq)
         src_length = [src_length]
         cuda = next(self.parameters()).is_cuda
-        in_seq = dp.TranslationBatch(
-            ag.Variable(torch.LongTensor(src_seq)).view(1, -1), src_length)
         if cuda:
             in_seq = in_seq.cuda()
-        _, src_state = self.encoder(in_seq)
+        _, src_state = self.encoder(ag.Variable(torch.LongTensor(src_seq)).view(1, -1),lengths=src_length)
         return src_state
 
     def advance_tgt(self, src_state, first, cur_state, index):
