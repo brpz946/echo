@@ -34,7 +34,7 @@ class SearchRNN(nn.Module):
                  tgt_hidden_dim,
                  n_layers=1,
                  pre_src_embedding=None,
-                 pre_tgt_embedding=None):
+                 pre_tgt_embedding=None, forcing=True):
         super(SearchRNN, self).__init__()
         self.tgt_hidden_dim = tgt_hidden_dim
         self.src_hidden_dim = src_hidden_dim
@@ -59,48 +59,37 @@ class SearchRNN(nn.Module):
         self.loss = nn.CrossEntropyLoss(ignore_index=0)  #ignore padding
         self.afunc = AFunc(tgt_hidden_dim, n_layers)
         self.softmax = nn.Softmax(dim=1)
-        self.lin_out = nn.Linear(tgt_hidden_dim, tgt_vocab_size)
+        self.lin_a_combine=nn.Linear(2*src_hidden_dim+tgt_hidden_dim, 2*src_hidden_dim+tgt_hidden_dim)  #used to combined the attention convext vector with the deepet hidden state of the decoder to get the output
+        self.lin_out = nn.Linear( 2*src_hidden_dim+tgt_hidden_dim, tgt_vocab_size) #final linear trans before the softmax
+        self.forcing=forcing
 
-    def advance(self,
-                num_continuing,
-                cur_tgt_hidden_layer,
-                src_hidden_seq,
-                Uh,
-                cur_tgt_col,
-                padding_knockout=None):
-        e_batch = self.afunc(cur_tgt_hidden_layer[:num_continuing, :, :],
-                             Uh[:num_continuing, :, :])
+    def advance(self,num_continuing,cur_tgt_hidden_layer,src_hidden_seq,Uh,cur_tgt_col, padding_knockout, last_c_batch):
+        
+
+        hidden_out, cur_tgt_hidden_layer = self.decoder(cur_tgt_col,code=cur_tgt_hidden_layer[:num_continuing, :, :].transpose(0, 1), extra_input=last_c_batch[:num_continuing,:,:] )
+        cur_tgt_hidden_layer = cur_tgt_hidden_layer.transpose(0, 1)
+        # Need to mess around with tranposes to use Afunc.  I keep batchfirst since afunc needs to use a view to combine the n_layers and tgt_hidden_dim dimensions
+        #hidden_out should have dimensions num_continuing by 1 by tgt_hidden_dim
+        
+        e_batch = self.afunc(cur_tgt_hidden_layer[:num_continuing, :, :], Uh[:num_continuing, :, :])
         if padding_knockout is not None:
             e_batch += padding_knockout[:num_continuing, :, :]
         alpha_batch = self.softmax(e_batch)
-
-        c_batch = torch.sum(
-            alpha_batch * src_hidden_seq[:num_continuing, :, :], dim=1
-        )  #multiplication here is pointwise and broadcast. #result should have dimensions num_continuing by 2*src_hidden_dim
+        c_batch = torch.sum(alpha_batch * src_hidden_seq[:num_continuing, :, :], dim=1)  #multiplication here is pointwise and broadcast. #result should have dimensions num_continuing by 2*src_hidden_dim
         c_batch = c_batch.view(num_continuing, 1, 2 * self.src_hidden_dim)
 
-        hidden_out, cur_tgt_hidden_layer = self.decoder(cur_tgt_col,code=cur_tgt_hidden_layer[:num_continuing, :, :].transpose(0, 1), extra_input=c_batch)
-        cur_tgt_hidden_layer = cur_tgt_hidden_layer.transpose(0, 1)
-        # Need to mess around with tranposes to use Afunc.  I keep batchfirst since afunc needs to use a view to combine the n_layers and tgt_hidden_dim dimensions
-        # import pdb;  pdb.set_trace()
-        #hidden_out should have dimensions num_continuing by 1 by tgt_hidden_dim
-        return hidden_out, cur_tgt_hidden_layer
+        hidden_out= F.relu( self.lin_a_combine(torch.cat([hidden_out,c_batch ],dim=2  ) ))
+        return hidden_out, cur_tgt_hidden_layer,c_batch
 
     def forward(self, batch):
         batchsize = batch.src.seqs.shape[0]
         src_max_seq_len = batch.src.seqs.shape[1]
         tgt_max_seq_len = batch.tgt.seqs.shape[1]
 
-        #import pdb; pdb.set_trace()
         src_hidden_seq, _ = self.encoder(batch.src.seqs,lengths=batch.src.lengths)
-        src_hidden_seq, _ = rnn.pad_packed_sequence(
-            src_hidden_seq, batch_first=True)
-        src_hidden_seq = src_hidden_seq[
-            batch.
-            perm, :, :]  #has dimensions batchsize by src_max sequence length by src_hidden_dim*2
-        Uh = self.U(
-            src_hidden_seq
-        )  #has dimension batchsize by src_max_seq_length by n_layers*tgt_hidden_dim
+        src_hidden_seq, _ = rnn.pad_packed_sequence(src_hidden_seq, batch_first=True)
+        src_hidden_seq = src_hidden_seq[batch.perm, :, :]  #has dimensions batchsize by src_max sequence length by src_hidden_dim*2
+        Uh = self.U(src_hidden_seq)  #has dimension batchsize by src_max_seq_length by n_layers*tgt_hidden_dim
         cur_tgt_hidden_layer = Variable(src_hidden_seq.data.new(batchsize, self.decoder.n_layers,self.decoder.hidden_dim).zero_())
 
         padding_knockout = Variable(src_hidden_seq.data.new(batchsize, src_max_seq_len, 1).zero_())
@@ -109,28 +98,19 @@ class SearchRNN(nn.Module):
                 padding_knockout[k, batch.src.lengths[k]:, 0] = -float("inf")
 
         num_continuing = batchsize  # at the current timestep, the number of sequences that have yet to terminate
-        decoder_output = Variable(src_hidden_seq.data.new(batchsize, tgt_max_seq_len,self.tgt_hidden_dim).zero_())
+        decoder_output = Variable(src_hidden_seq.data.new(batchsize, tgt_max_seq_len,self.tgt_hidden_dim+2*self.src_hidden_dim).zero_())
+        last_c_batch=Variable(src_hidden_seq.data.new(batchsize,1,2*self.src_hidden_dim).zero_())
         for i in range(tgt_max_seq_len):
             while batch.tgt.lengths[num_continuing - 1] <= i:
                 num_continuing -= 1
             assert (num_continuing > 0)
             cur_tgt_col = batch.tgt.seqs[:num_continuing,i].contiguous().view(-1,1)   
-            hidden_out, cur_tgt_hidden_layer = self.advance(
-                num_continuing=num_continuing,
-                cur_tgt_hidden_layer=cur_tgt_hidden_layer,
-                src_hidden_seq=src_hidden_seq,
-                cur_tgt_col=cur_tgt_col,
-                Uh=Uh,
-                padding_knockout=padding_knockout)
+            hidden_out, cur_tgt_hidden_layer, last_c_batch = self.advance(num_continuing=num_continuing,cur_tgt_hidden_layer=cur_tgt_hidden_layer,src_hidden_seq=src_hidden_seq,cur_tgt_col=cur_tgt_col,Uh=Uh, padding_knockout=padding_knockout,last_c_batch=last_c_batch)
 
-            decoder_output[:num_continuing, i, :] = hidden_out.view(
-                num_continuing, self.tgt_hidden_dim)
+            decoder_output[:num_continuing, i, :] = hidden_out.view(num_continuing, self.tgt_hidden_dim+2*self.src_hidden_dim)
         out = self.lin_out(decoder_output)
         # out should have dimension batch_size by tgt_max_seq_len by tgt_vocab_size
-        goal = torch.cat(
-            (batch.tgt.seqs[:, 1:],
-             Variable(batch.tgt.seqs.data.new(batchsize, 1).zero_())),
-            1)  #prediction is staggered.  at sequence element t we predict t+1
+        goal = torch.cat((batch.tgt.seqs[:, 1:],Variable(batch.tgt.seqs.data.new(batchsize, 1).zero_())),1)  #prediction is staggered.  at sequence element t we predict t+1
         return self.loss(out.view(-1, self.tgt_vocab_size), goal.view(-1))
 
     def predict(self, in_seq):
@@ -147,9 +127,7 @@ class SearchRNN(nn.Module):
         if cuda:
             in_seq = in_seq.cuda()
         src_hidden_seq, _ = self.encoder(in_seq)
-        src_hidden_seq, _ = rnn.pad_packed_sequence(
-            src_hidden_seq,
-            batch_first=True)  #dimensions batch, 1,  2*src_hidden_dim
+        src_hidden_seq, _ = rnn.pad_packed_sequence(src_hidden_seq,batch_first=True)  #dimensions batch, 1,  2*src_hidden_dim
         Uh = self.U(src_hidden_seq)  #dimensions 1, n_layers* tgt_hidden_dim
 
         src_state = [src_hidden_seq, Uh]
@@ -163,30 +141,25 @@ class SearchRNN(nn.Module):
         Uh = src_state[1]
         if first:
             width = 1
-            cur_tgt_hidden_layer = Variable(
-                src_hidden_seq.data.new(1, self.decoder.n_layers,
-                                        self.decoder.hidden_dim).zero_())
+            cur_tgt_hidden_layer = Variable(src_hidden_seq.data.new(1, self.decoder.n_layers,self.decoder.hidden_dim).zero_())
+            c_batch= Variable( src_hidden_seq.new(width,2*self.src_hidden_dim).zero_() )
         else:
             width = cur_state.shape[0]
-            cur_tgt_hidden_layer = cur_state.view(
-                width, self.decoder.n_layers, self.decoder.hidden_dim
-            )  #no need to transpose cur_gt_hidden layer: advance does that.
+            divider=self.decoder.n_layers*self.decoder.hidden_dim
+            cur_tgt_hidden_layer = cur_state[:,:divider].contiguous().view(width, self.decoder.n_layers, self.decoder.hidden_dim)  #no need to transpose cur_gt_hidden layer: advance does that.
+            last_c_batch=cur_states[:,divider:]
         cur_tgt_col = index.view(-1, 1),
             
         #import pdb; pdb.set_trace()
-        out, cur_tgt_hidden_layer = self.advance(
-            num_continuing=width,
-            cur_tgt_hidden_layer=cur_tgt_hidden_layer,
-            src_hidden_seq=src_hidden_seq,
-            cur_tgt_col=cur_tgt_col,
-            Uh=Uh,
-            padding_knockout=None)
+        out, cur_tgt_hidden_layer,c_batch = self.advance(num_continuing=width,cur_tgt_hidden_layer=cur_tgt_hidden_layer,src_hidden_seq=src_hidden_seq,cur_tgt_col=cur_tgt_col,Uh=Uh,padding_knockout=None,last_c_batch=last_c_batch)
         out = out.view(width, self.decoder.hidden_dim)
         weights = self.lin_out(out)  #dimensions width by tgt_vocab size
         logprobs = F.log_softmax(weights, dim=1)
-        out_state = cur_tgt_hidden_layer.view(
-            width, self.decoder.n_layers * self.decoder.hidden_dim)
+        out_state = torch.cat( [cur_tgt_hidden_layer.view( width, self.decoder.n_layers * self.decoder.hidden_dim),c_batch.view(width,2*self.src_hidden_dim)])
         return logprobs, out_state
+
+
+
 
     def beam_predictor(self):
         cuda = next(self.parameters()).is_cuda

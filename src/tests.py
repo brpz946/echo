@@ -770,15 +770,15 @@ if __name__ == '__main__':
     unittest.TextTestRunner().run(fast)
     unittest.TextTestRunner().run(enc)
     unittest.TextTestRunner().run(dptest)
-    unittest.TextTestRunner().run(trtest)  #slow
     unittest.TextTestRunner().run(pred)
     unittest.TextTestRunner().run(mantests)
+    unittest.TextTestRunner().run(trtest)  #slow
     unittest.TextTestRunner().run(premantests)  #slow
     unittest.TextTestRunner().run(bitests)  #slow
     unittest.TextTestRunner().run(multitests)  #slow
     unittest.TextTestRunner().run(wvtests)  #slow
-    unittest.TextTestRunner().run(schtests)
     unittest.TextTestRunner().run(schslowtests) #sloW
+    unittest.TextTestRunner().run(schtests)
     unittest.TextTestRunner().run(schmore)
     unittest.TextTestRunner().run(beam)
     logging.getLogger().setLevel(logging.DEBUG)
