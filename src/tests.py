@@ -707,7 +707,7 @@ class BatchPredTests(unittest.TestCase):
         self.assertAlmostEqual(logprobs.data[2], 0)
 
 
-class BatchPredTests2(unittest.TesCase):
+class BatchPredTests2(unittest.TestCase):
     def setUp(self):
         l1, l2, spairs = lang.read_langsv1('eng', 'fra',
                                            '../data/eng-fra_tut/eng-fra.txt')
@@ -761,21 +761,21 @@ if __name__ == '__main__':
     fast = unittest.TestSuite()
     fast.addTest(lang_test_suite)
     fast.addTest(lang_util_test_suite)
-    # unittest.TextTestRunner().run(fast)
-    # unittest.TextTestRunner().run(enc)
-    # unittest.TextTestRunner().run(dptest)
-    # unittest.TextTestRunner().run(trtest)  #slow
-    # unittest.TextTestRunner().run(pred)
-    # unittest.TextTestRunner().run(mantests)
-    # unittest.TextTestRunner().run(premantests)  #slow
-    # unittest.TextTestRunner().run(bitests)  #slow
-    # unittest.TextTestRunner().run(multitests)  #slow
-    # unittest.TextTestRunner().run(wvtests)  #slow
-    # unittest.TextTestRunner().run(schtests)
-    # unittest.TextTestRunner().run(schslowtests)
-    # unittest.TextTestRunner().run(schmore)
-    # unittest.TextTestRunner().run(beam)
-    # unittest.TextTestRunner().run(morebeam) #slow
+    unittest.TextTestRunner().run(fast)
+    unittest.TextTestRunner().run(enc)
+    unittest.TextTestRunner().run(dptest)
+    unittest.TextTestRunner().run(trtest)  #slow
+    unittest.TextTestRunner().run(pred)
+    unittest.TextTestRunner().run(mantests)
+    unittest.TextTestRunner().run(premantests)  #slow
+    unittest.TextTestRunner().run(bitests)  #slow
+    unittest.TextTestRunner().run(multitests)  #slow
+    unittest.TextTestRunner().run(wvtests)  #slow
+    unittest.TextTestRunner().run(schtests)
+    unittest.TextTestRunner().run(schslowtests)
+    unittest.TextTestRunner().run(schmore)
+    unittest.TextTestRunner().run(beam)
+    unittest.TextTestRunner().run(morebeam) slow
     logging.getLogger().setLevel(logging.DEBUG)
-   # unittest.TextTestRunner().run(bleuval)
+    unittest.TextTestRunner().run(bleuval)
     unittest.TextTestRunner().run(bp)

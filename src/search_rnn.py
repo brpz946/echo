@@ -151,7 +151,7 @@ class SearchRNN(nn.Module):
     def process_src(self, src_seqs, src_lengths):
         cuda = next(self.parameters()).is_cuda
         l_src_lengths = src_lengths.tolist()
-        in_seq = dp.TranslationBatch(Variable(src_seqs, l_src_lengths)
+        in_seq = dp.TranslationBatch(Variable(src_seqs, l_src_lengths))
         if cuda:
             in_seq = in_seq.cuda()
         src_hidden_seq, _ = self.encoder(in_seq)
@@ -165,7 +165,7 @@ class SearchRNN(nn.Module):
 
     def advance_tgt(self, src_state, first, cur_state, index):
         '''
-        For use by the BeamPredictor function in the predictor module.
+        For use by the BathchPredictor function in the predictor module.
         '''
         src_hidden_seq = src_state[0]
         Uh = src_state[1]

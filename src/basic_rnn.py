@@ -44,7 +44,7 @@ class RNN(nn.Module):
                  n_layers=1,
                  bidirectional=False,
                  pretrained_embedding=None,
-                 extra_input_dim=0):
+                 extra_input_dim=0, pack=True):
         super(RNN, self).__init__()
         self.n_layers = n_layers
         self.hidden_dim = hidden_dim
