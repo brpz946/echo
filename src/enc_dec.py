@@ -160,8 +160,8 @@ class EncoderDecoderRNN(nn.Module):
             width = src_state.shape[0]
             hidden = src_state
         else:
-            width = cur_state.shape[0]
-            hidden = cur_state  #need to reoganize cur_state so we can feed it into the decoder
+            width = cur_state[0].shape[0]
+            hidden = cur_state[0]  #need to reoganize cur_state so we can feed it into the decoder
             hidden = hidden.view(
                 width, self.decoder.n_layers * self.decoder.n_directions,
                 self.decoder.hidden_dim)
@@ -174,18 +174,15 @@ class EncoderDecoderRNN(nn.Module):
         logprobs = F.log_softmax(weights, dim=1)
         #now need to process hidden again so it can be a cur_state
         hidden = hidden.transpose(0, 1)
-        hidden = hidden.view(width,
-                             self.decoder.n_layers * self.decoder.n_directions
-                             * self.decoder.hidden_dim)
-        return logprobs, hidden
+        hidden = hidden.view(width,self.decoder.n_layers * self.decoder.n_directions* self.decoder.hidden_dim)
+        return logprobs, [hidden]
 
     def beam_predictor(self):
         cuda = next(self.parameters()).is_cuda
         return predictor.BeamPredictor(
             self.process_src,
             self.advance_tgt,
-            r=self.decoder.n_layers * self.decoder.n_directions *
-            self.decoder.hidden_dim,
+            rlist=[self.decoder.n_layers * self.decoder.n_directions *self.decoder.hidden_dim],
             tgt_vocab_size=self.out_vocab_size,
             max_seq_len=30,
             cuda=cuda)

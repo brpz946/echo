@@ -20,12 +20,12 @@ class BeamPredictor:
                 Args:
                    --src_state: a FloatTensor variable. Contents are model-dependent
                    --first:  A boolean indicating whether this is the first iteration.
-                   --cur_state: A FloatTensor variable. Holds state values for each sequence currently in the beam. Should either be empty or  have dimensions w by r, where w is less than or equal to beam width and r is model-dependent.
+                   --cur_state: A list of float FloatTensor variables. each element holds state values for each sequence currently in the beam. Should either be empty or  have dimensions w by r, where w is less than or equal to beam width and r is model-dependent.
                    --index: A LongTensor variable with dimension w, where w is less than or equal to beam width.  Stores the indexes currently being added for each sequence in the beam.
                 Returns:
                     --A w by v LongTensor variable, where v is the tgt vocabulary size.  Entry (i,k) holds the incremental log probability (negative loss) predicted by the model if index k is the next to be added to the sequence represented by row i. 
-                    --A w by r FloatTensor.  Row i is the next state predicted by the model for sequence i.
-            --r: Length of the rows of rows of cur_state.  Model-dependent. 
+                    --a list of  w by r FloatTensor.  Row i is the next state predicted by the model for sequence i.
+            --rlist: list.  ith element is  length of the rows in ith element of cur_state.  Model-dependent. 
             --k: The number of predictions to output.
             --w: The beam width
             --max_seq_len: The maximum sequence length that will be explored during the beam search.
@@ -36,7 +36,7 @@ class BeamPredictor:
     def __init__(self,
                  process_src,
                  advance_tgt,
-                 r, 
+                 rlist, 
                  tgt_vocab_size,
                  k=1,
                  w=1,
@@ -44,7 +44,7 @@ class BeamPredictor:
                  cuda=False):
         self.process_src = process_src
         self.advance_tgt = advance_tgt
-        self.r = r
+        self.rlist = rlist
         self.k=k
         self.w=w
         self.tgt_vocab_size = tgt_vocab_size
@@ -65,27 +65,24 @@ class BeamPredictor:
         k=self.k
         w=self.w
         src_state = self.process_src(src_seq)  #src_state is used only by advance_output.  Thus, its contents need only be acceptable to that function.
-        cur_state = Variable(torch.Tensor(0).fill_(0))
+        cur_state = [Variable(torch.Tensor(0).fill_(0)) for i in self.rlist]
         incoming_index = Variable(torch.LongTensor([lang.SOS_TOKEN]))
         logprobs = Variable(torch.Tensor(1, 1).fill_(0))
         history = [[lang.SOS_TOKEN]]
         if self.cuda:
             incoming_index = incoming_index.cuda()
             logprobs = logprobs.cuda()
-            cur_state = cur_state.cuda()
+            for state in cur_state:
+                state= state.cuda()
+
 
         best_terminated = util.FixedHeap(k)
         cur_depth = 1
 
         while True:
-            [step_logprobs, states] = self.advance_tgt(
-                src_state=src_state,
-                first=(cur_depth == 1),
-                cur_state=cur_state,
-                index=incoming_index)
+            [step_logprobs, states] = self.advance_tgt(src_state=src_state,first=(cur_depth == 1), cur_state=cur_state,index=incoming_index)
             overall_logprobs = step_logprobs + logprobs  #broadcast
-            [top_logprobs, top_inds] = torch.topk(
-                overall_logprobs.view(-1), k=k + w, sorted=True)
+            [top_logprobs, top_inds] = torch.topk(overall_logprobs.view(-1), k=k + w, sorted=True)
             rows = top_inds.div(self.tgt_vocab_size)
             cols = top_inds.remainder(self.tgt_vocab_size)
 
@@ -93,19 +90,20 @@ class BeamPredictor:
             if cur_depth >= self.max_tgt_seq_len:
                 z = 0
                 while best_terminated.cur_size < k:
-                    best_terminated.try_add(history[rows.data[z]] +
-                                            [cols.data[z]] + [lang.EOS_TOKEN],
-                                            top_logprobs.data[z])
+                    best_terminated.try_add(history[rows.data[z]] +[cols.data[z]] + [lang.EOS_TOKEN],top_logprobs.data[z])
                     z += 1
                 break
 
-            p = 0  #current index in old sequences
+            p = 0  #current index in old sequences:
             q = 0  #current index in new  sequences being created for next timestep
             s = 0  #number of terminated seqiences found so far
-            new_cur_state = Variable(cur_state.data.new(w, self.r).fill_(0))
+            new_cur_state =[]
+            for i in range(len(self.rlist)):
+                new_cur_state.append(Variable(cur_state[i].data.new(w, self.rlist[i]).fill_(0)))
+            
+            
             new_incoming_index = Variable(incoming_index.data.new(w).fill_(0))
-            new_logprobs = Variable(
-                logprobs.data.new(w, 1).fill_(-float("inf")))
+            new_logprobs = Variable(logprobs.data.new(w, 1).fill_(-float("inf")))
             new_history = []
             for i in range(w):
                 new_history.append([])
@@ -117,12 +115,15 @@ class BeamPredictor:
                         top_logprobs.data[p])
                     s += 1
                 else:
-                    new_cur_state[q, :] = states[rows[p], :].squeeze()
+                    for i in range(len(self.rlist)):
+                       # print("p:",p,"q:",q,"i:",i, "rows:",rows)
+                        statei=states[i]
+                        state=statei[rows[p], :].squeeze()
+                        new_cur_state[i][q, :] =state
+                    
                     new_incoming_index[q] = cols[p]
                     new_logprobs[q, 0] = top_logprobs[p]
-                    new_history[q] = history[rows.data[p]] + [
-                        cols.data[p]
-                    ]  #cannot use append here since it works in place
+                    new_history[q] = history[rows.data[p]] + [cols.data[p]]  #cannot use append here since it works in place
                     q += 1
                 p += 1
 

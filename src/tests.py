@@ -553,11 +553,11 @@ class PredictorTests(unittest.TestCase):
                         Variable(torch.Tensor([0, 0, 0, 0, 0, 1])))
                 else:
                     self.assertEqual(0, 1)
-            stateout = Variable(torch.Tensor(num_seqs, 1))
+            stateout = [Variable(torch.Tensor(num_seqs, 1))]
             return probs, stateout
 
         predictor = pr.BeamPredictor(
-            process_src, advance_tgt, r=1, max_seq_len=20, tgt_vocab_size=6,k=2,w=2)
+            process_src, advance_tgt, rlist=[1], max_seq_len=20, tgt_vocab_size=6,k=2,w=2)
         seqs, probs = predictor.beam_search(src_seq=[])
         self.assertEqual(seqs[0], [1, 4, 2])
         self.assertEqual(seqs[1], [1, 3, 2])
@@ -761,22 +761,22 @@ if __name__ == '__main__':
     bp = unittest.defaultTestLoader.loadTestsFromTestCase(BatchPredTests)
     fast = unittest.TestSuite()
     fast.addTest(lang_test_suite)
-    # fast.addTest(lang_util_test_suite)
-    # unittest.TextTestRunner().run(fast)
-    # unittest.TextTestRunner().run(enc)
-    # unittest.TextTestRunner().run(dptest)
-    # unittest.TextTestRunner().run(trtest)  #slow
-    # unittest.TextTestRunner().run(pred)
-    # unittest.TextTestRunner().run(mantests)
-    # unittest.TextTestRunner().run(premantests)  #slow
-    # unittest.TextTestRunner().run(bitests)  #slow
-    # unittest.TextTestRunner().run(multitests)  #slow
-    # unittest.TextTestRunner().run(wvtests)  #slow
-    # unittest.TextTestRunner().run(schtests)
-    # unittest.TextTestRunner().run(schslowtests)
-    # unittest.TextTestRunner().run(schmore)
-    # unittest.TextTestRunner().run(beam)
-    unittest.TextTestRunner().run(morebeam) #slow
-    # logging.getLogger().setLevel(logging.DEBUG)
+    fast.addTest(lang_util_test_suite)
+    unittest.TextTestRunner().run(fast)
+    unittest.TextTestRunner().run(enc)
+    unittest.TextTestRunner().run(dptest)
+    unittest.TextTestRunner().run(trtest)  #slow
+    unittest.TextTestRunner().run(pred)
+    unittest.TextTestRunner().run(mantests)
+    unittest.TextTestRunner().run(premantests)  #slow
+    unittest.TextTestRunner().run(bitests)  #slow
+    unittest.TextTestRunner().run(multitests)  #slow
+    unittest.TextTestRunner().run(wvtests)  #slow
+    unittest.TextTestRunner().run(schtests)
+    unittest.TextTestRunner().run(schslowtests)
+    unittest.TextTestRunner().run(schmore)
+    unittest.TextTestRunner().run(beam)
+    unittest.TextTestRunner().run(morebeam)#<F7> slow
+    logging.getLogger().setLevel(logging.DEBUG)
     # unittest.TextTestRunner().run(bleuval)
     # unittest.TextTestRunner().run(bp)

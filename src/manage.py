@@ -54,7 +54,9 @@ class Manager():
                         pre_src_path=None,
                         pre_tgt_path=None,
                         model_constructor=ed.EncoderDecoderRNN.construct,
-                        validate=False):
+                        validate=False,
+                        record_path=None,
+                        model_path=None):
         logging.getLogger().setLevel(loglevel)
         l1, l2, spairs = lang.read_langsv1(l1_name, l2_name, path, filt)
         lang.index_words_from_pairs(l1, l2, spairs)
@@ -89,7 +91,7 @@ class Manager():
             reporter=reporting.TestPhraseReporter(model, l1, l2, testphrase),
             opt=opt,
             predictor=pred,
-            validators=validators)
+            validators=validators,record_path=record_path, model_path=model_path)
         return Manager(l1, l2, model, trainer)
 
     @staticmethod
