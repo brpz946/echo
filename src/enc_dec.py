@@ -98,6 +98,46 @@ class EncoderDecoderRNN(nn.Module):
         predictor = self.beam_predictor()
         return predictor.predict(in_seq)
 
+    def old_predict(self, in_seq, in_seq_len=None):
+        '''
+        old version of predict.  mainly kept around for testing
+            Args:
+                -in_seq: A list of integers containing the sequence of interest.
+                -in_seq_len: A list of one element, the length of the sequence in in_seq.  This allows the use of padding.
+            Returns:
+                - A list of integers containing the predicted output sequence.
+        '''
+        cuda = next(self.parameters()).is_cuda
+        if in_seq_len == None:
+            in_seq_len = [len(in_seq)]
+        in_seq = dp.TranslationBatch(
+            ag.Variable(torch.LongTensor(in_seq)).view(1, -1), in_seq_len)
+        if cuda:
+            in_seq = in_seq.cuda()
+        _, hidden = self.encoder(in_seq)
+        index = ag.Variable(torch.LongTensor([lang.SOS_TOKEN]).view(1, 1))
+        if cuda:
+            index = index.cuda()
+        iter = 0
+        indexes = [index.data[0][0]]
+        while True:
+            embedded = self.decoder.embed(index)
+            out_vec, hidden = self.decoder.gru(embedded, hidden)
+            weights = self.lin(out_vec).squeeze()
+            _, index = torch.topk(weights, k=1)
+            indexes.append(index.data[0])
+            if index.data[0] == lang.EOS_TOKEN:
+                break
+            index = index.view(1, 1)
+            iter = iter + 1
+            if iter >= MAX_PREDICTION_LENGTH-1:
+                indexes.append(lang.EOS_TOKEN)
+                break
+        return indexes
+
+
+
+
     ##functions for use with beam search
 
     def process_src(self, src_seq, src_length=None):

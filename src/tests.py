@@ -586,25 +586,26 @@ class MorePredictorTests(unittest.TestCase):
             tgt_hidden_dim=100,
             n_layers=2)
 
-    # def test_enc_dec_beam_consistancy(self):
-    # '''
-    # BeamPredictor with beam width 1 should produce the same result as the old greedy prediction function
-    # '''
-    # beam=self.model.beam_predictor()
-    # oldpred= self.model.predict([lang.SOS_TOKEN,5,lang.EOS_TOKEN])
-    # newpred=beam.predict([lang.SOS_TOKEN,5,lang.EOS_TOKEN],k=1,w=1 )[0]
-    # # import pdb; pdb.set_trace()
-    # self.assertEqual(oldpred,newpred[0] )
+    def test_enc_dec_beam_consistancy(self):
+        '''
+        BeamPredictor with beam width 1 should produce the same result as the old greedy prediction function
+        '''
+        print("hello!")
+        beam=self.model.beam_predictor()
+        oldpred= self.model.old_predict([lang.SOS_TOKEN,5,lang.EOS_TOKEN])
+        newpred=beam.predict([lang.SOS_TOKEN,5,lang.EOS_TOKEN] )
+        self.assertEqual(oldpred,newpred )
 
-    # def test_search_beam_consistancy(self):
-    # '''
-    # BeamPredictor with beam width 1 should produce the same result as the old greedy prediction function when applied to SearchRNN
-    # '''
-    # beam=self.model2.beam_predictor()
-    # oldpred= self.model2.predict([lang.SOS_TOKEN,5,lang.EOS_TOKEN])
-    # newpred=beam.predict([lang.SOS_TOKEN,5,lang.EOS_TOKEN],k=1,w=1 )[0]
-    # #  import pdb; pdb.set_trace()
-    # self.assertEqual(oldpred,newpred[0] )
+    def test_search_beam_consistancy(self):
+        '''
+        BeamPredictor with beam width 1 should produce the same result as the old greedy prediction function when applied to SearchRNN
+        '''
+        print("yo!")
+        beam=self.model2.beam_predictor()
+        oldpred= self.model2.old_predict([lang.SOS_TOKEN,5,lang.EOS_TOKEN])
+        newpred=beam.predict([lang.SOS_TOKEN,5,lang.EOS_TOKEN])
+        #  import pdb; pdb.set_trace()
+        self.assertEqual(oldpred,newpred )
 
     # def test_search_beam_consistancy_gpu(self):
     # '''
@@ -760,22 +761,22 @@ if __name__ == '__main__':
     bp = unittest.defaultTestLoader.loadTestsFromTestCase(BatchPredTests)
     fast = unittest.TestSuite()
     fast.addTest(lang_test_suite)
-    fast.addTest(lang_util_test_suite)
-    unittest.TextTestRunner().run(fast)
-    unittest.TextTestRunner().run(enc)
-    unittest.TextTestRunner().run(dptest)
-    unittest.TextTestRunner().run(trtest)  #slow
-    unittest.TextTestRunner().run(pred)
-    unittest.TextTestRunner().run(mantests)
-    unittest.TextTestRunner().run(premantests)  #slow
-    unittest.TextTestRunner().run(bitests)  #slow
-    unittest.TextTestRunner().run(multitests)  #slow
-    unittest.TextTestRunner().run(wvtests)  #slow
-    unittest.TextTestRunner().run(schtests)
-    unittest.TextTestRunner().run(schslowtests)
-    unittest.TextTestRunner().run(schmore)
-    unittest.TextTestRunner().run(beam)
-    unittest.TextTestRunner().run(morebeam) slow
-    logging.getLogger().setLevel(logging.DEBUG)
-    unittest.TextTestRunner().run(bleuval)
-    unittest.TextTestRunner().run(bp)
+    # fast.addTest(lang_util_test_suite)
+    # unittest.TextTestRunner().run(fast)
+    # unittest.TextTestRunner().run(enc)
+    # unittest.TextTestRunner().run(dptest)
+    # unittest.TextTestRunner().run(trtest)  #slow
+    # unittest.TextTestRunner().run(pred)
+    # unittest.TextTestRunner().run(mantests)
+    # unittest.TextTestRunner().run(premantests)  #slow
+    # unittest.TextTestRunner().run(bitests)  #slow
+    # unittest.TextTestRunner().run(multitests)  #slow
+    # unittest.TextTestRunner().run(wvtests)  #slow
+    # unittest.TextTestRunner().run(schtests)
+    # unittest.TextTestRunner().run(schslowtests)
+    # unittest.TextTestRunner().run(schmore)
+    # unittest.TextTestRunner().run(beam)
+    unittest.TextTestRunner().run(morebeam) #slow
+    # logging.getLogger().setLevel(logging.DEBUG)
+    # unittest.TextTestRunner().run(bleuval)
+    # unittest.TextTestRunner().run(bp)

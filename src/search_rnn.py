@@ -148,12 +148,56 @@ class SearchRNN(nn.Module):
         predictor = self.beam_predictor()
         return predictor.predict(in_seq)
 
-    def process_src(self, src_seqs, src_lengths):
+
+    def old_predict(self, in_seq):
+        '''
+            Old greedy prediction function. kept around for to test new prediction functions against`
+        '''
         cuda = next(self.parameters()).is_cuda
-        l_src_lengths = src_lengths.tolist()
-        in_seq = dp.TranslationBatch(Variable(src_seqs, l_src_lengths))
+        in_seq_len = [len(in_seq)]
+        in_seq = dp.TranslationBatch(
+            Variable(torch.LongTensor(in_seq)).view(1, -1), in_seq_len)
         if cuda:
             in_seq = in_seq.cuda()
+        src_hidden_seq, _ = self.encoder(in_seq)
+        src_hidden_seq,_ = rnn.pad_packed_sequence(src_hidden_seq, batch_first=True) 
+        Uh = self.U(src_hidden_seq)
+        cur_tgt_hidden_layer = Variable(src_hidden_seq.data.new(1, self.decoder.n_layers, self.decoder.hidden_dim).zero_())
+        num_continuing=1
+        
+        index = Variable(torch.LongTensor([lang.SOS_TOKEN]).view(1, 1))
+        if cuda:
+            index = index.cuda()
+       
+        indexes=[index.data[0][0]]
+        iter=0
+        while True:
+           cur_tgt=dp.TranslationBatch(index,[1])
+           hidden_out, cur_tgt_hidden_layer  =  self.advance(num_continuing=1, cur_tgt_hidden_layer= cur_tgt_hidden_layer, src_hidden_seq=src_hidden_seq,cur_tgt=cur_tgt  ,Uh=Uh, padding_knockout=None )
+           weights=self.lin_out(hidden_out).squeeze()#dimension vocab_size 
+           #import pdb; pdb.set_trace()
+           _, index = torch.topk(weights, k=1)
+           indexes.append(index.data[0])
+           if index.data[0] == lang.EOS_TOKEN:
+                break
+           index = index.view(1, 1)
+           iter = iter + 1
+           if iter >= MAX_PREDICTION_LENGTH-1:
+                indexes.append(lang.EOS_TOKEN)
+                break
+        return indexes
+
+
+
+    def process_src(self, src_seqs, src_length= None): 
+        if src_length == None:
+            src_length = len(src_seqs)
+        src_length = [src_length]
+        cuda = next(self.parameters()).is_cuda
+        in_seq = dp.TranslationBatch(Variable(torch.LongTensor(src_seqs)).view(1, -1), src_length)
+        if cuda:
+            in_seq = in_seq.cuda()
+
         src_hidden_seq, _ = self.encoder(in_seq)
         src_hidden_seq, _ = rnn.pad_packed_sequence(
             src_hidden_seq,

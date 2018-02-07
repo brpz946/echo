@@ -64,9 +64,7 @@ class BeamPredictor:
         '''
         k=self.k
         w=self.w
-        src_state = self.process_src(
-            src_seq
-        )  #src_state is used only by advance_output.  Thus, its contents need only be acceptable to that function.
+        src_state = self.process_src(src_seq)  #src_state is used only by advance_output.  Thus, its contents need only be acceptable to that function.
         cur_state = Variable(torch.Tensor(0).fill_(0))
         incoming_index = Variable(torch.LongTensor([lang.SOS_TOKEN]))
         logprobs = Variable(torch.Tensor(1, 1).fill_(0))
@@ -138,7 +136,6 @@ class BeamPredictor:
             incoming_index = new_incoming_index
             logprobs = new_logprobs
             #  if incoming_index.data[0]==7236:
-            #     import pdb; pdb.set_trace()
             history = new_history
             if best_terminated.cur_size >= k and (q == 0 or best_terminated.min_score() >= logprobs.data[0][0] ): 
                 # heap full and worst terminated better than best un-terminated or found no terminated this iteration
