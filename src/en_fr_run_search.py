@@ -23,6 +23,6 @@ man = manage.Manager.basic_search_from_file(
     filt=lang.filter_pair_tut,
     opt='rmsprop',validate=True,
     record_path=record_path,
-    model_path=model_path)
+    model_path=model_path,dropout=0.2)
 man.trainer.train(70000)
 man.save(full_model_path)

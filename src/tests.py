@@ -359,7 +359,7 @@ class ManagerTestsPretrained(unittest.TestCase):
             pretrained=True,
             pre_src_path='../data/fastText_word_vectors/wiki.en.vec',
             pre_tgt_path='../data/fastText_word_vectors/wiki.en.vec',
-            cuda=True)
+            cuda=True,dropout=0)
         man.trainer.train(100)
         dexsamp = man.l1.sentence2dex("by the gods ! dustballs !")
         pred = man.model.predict(dexsamp)
@@ -373,8 +373,8 @@ class ManagerTestsPretrained(unittest.TestCase):
             loglevel=logging.WARNING,
             pretrained=True,
             pre_src_path='../data/fastText_word_vectors/wiki.en.vec',
-            pre_tgt_path='../data/fastText_word_vectors/wiki.en.vec')
-        man.trainer.train(100)
+            pre_tgt_path='../data/fastText_word_vectors/wiki.en.vec',dropout=0)
+        man.trainer.train(400)
         dexsamp = man.l1.sentence2dex("by the gods ! dustballs !")
         pred = man.model.predict(dexsamp)
         translation = man.l2.dex2sentence(pred)
@@ -385,7 +385,7 @@ class ManagerTests(unittest.TestCase):
     def test_basic_run(self):
         '''The model should learn to translate when the dataset consists of one phrase '''
         man = manage.Manager.basic_enc_dec_from_file(
-            "../data/testing/by_the_gods.txt", loglevel=logging.WARNING,validate=False)
+            "../data/testing/by_the_gods.txt", loglevel=logging.WARNING,validate=False,dropout=0)
         man.trainer.train(100)
         dexsamp = man.l1.sentence2dex("by the gods !")
         pred = man.model.predict(dexsamp)
@@ -401,7 +401,7 @@ class ManagerTests(unittest.TestCase):
         man = manage.Manager.basic_enc_dec_from_file(
             "../data/testing/by_the_gods.txt",
             loglevel=logging.WARNING,
-            cuda=True, validate=False)
+            cuda=True, validate=False,dropout=0)
         man.trainer.train(100)
         dexsamp = man.l1.sentence2dex("by the gods !")
         pred = man.model.predict(dexsamp)
@@ -504,7 +504,7 @@ class MoreSearchRNNTests(unittest.TestCase):
         man = manage.Manager.basic_search_from_file(
             path="../data/testing/by_the_gods.txt",
             loglevel=logging.WARNING,
-            cuda=True)
+            cuda=True,dropout=0)
         man.trainer.train(100)
         dexsamp = man.l1.sentence2dex("by the gods !")
         pred = man.model.predict(dexsamp)
@@ -760,13 +760,15 @@ if __name__ == '__main__':
     fast = unittest.TestSuite()
     fast.addTest(lang_test_suite)
     fast.addTest(lang_util_test_suite)
+    
+    logging.getLogger().setLevel(logging.DEBUG)
     unittest.TextTestRunner().run(fast)
     unittest.TextTestRunner().run(enc)
     unittest.TextTestRunner().run(dptest)
     unittest.TextTestRunner().run(pred)
     unittest.TextTestRunner().run(mantests)
     unittest.TextTestRunner().run(trtest)  #slow
-    unittest.TextTestRunner().run(premantests)  #slow
+    unittest.TextTestRunner().run(premantests)#  slow
     unittest.TextTestRunner().run(bitests)  #slow
     unittest.TextTestRunner().run(multitests)  #slow
     unittest.TextTestRunner().run(wvtests)  #slow
@@ -775,6 +777,5 @@ if __name__ == '__main__':
     unittest.TextTestRunner().run(schslowtests)
     unittest.TextTestRunner().run(schmore)
     unittest.TextTestRunner().run(beam)
-    logging.getLogger().setLevel(logging.DEBUG)
     unittest.TextTestRunner().run(bleuval)
     unittest.TextTestRunner().run(bp)

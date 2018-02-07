@@ -81,7 +81,9 @@ class Trainer:
                 
 
         for step in range(steps):
+            self.model.train() #enable dropout
             loss = train_step(batch=batches[i], model=self.model, optimizer=optimizer, cuda=self.cuda)
+            self.model.eval()#disable dropout
             interval_loss += loss
             i += 1
             if ((step + 1) % self.report_interval == 0) and self.reporter is not None: 

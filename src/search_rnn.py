@@ -3,6 +3,7 @@ import torch.nn as nn
 import torch.nn.utils.rnn as rnn
 from torch.autograd import Variable
 import torch.nn.functional as F
+import logging
 
 import basic_rnn as basic
 import data_proc as dp
@@ -34,7 +35,8 @@ class SearchRNN(nn.Module):
                  tgt_hidden_dim,
                  n_layers=1,
                  pre_src_embedding=None,
-                 pre_tgt_embedding=None):
+                 pre_tgt_embedding=None,dropout=0):
+        logging.info("Creating SearchRNN with dropout of "+str(dropout))
         super(SearchRNN, self).__init__()
         self.tgt_hidden_dim = tgt_hidden_dim
         self.src_hidden_dim = src_hidden_dim
@@ -45,7 +47,8 @@ class SearchRNN(nn.Module):
             hidden_dim=src_hidden_dim,
             n_layers=n_layers,
             bidirectional=True,
-            pretrained_embedding=pre_src_embedding)
+            pretrained_embedding=pre_src_embedding,
+            dropout=dropout)
         self.decoder = basic.RNN(
             vocab_size=tgt_vocab_size,
             embedding_dim=tgt_embedding_dim,
@@ -53,7 +56,8 @@ class SearchRNN(nn.Module):
             n_layers=n_layers,
             bidirectional=False,
             pretrained_embedding=pre_tgt_embedding,
-            extra_input_dim=2 * src_hidden_dim)
+            extra_input_dim=2 * src_hidden_dim,
+            dropout=dropout)
         self.U = nn.Linear(2 * src_hidden_dim, n_layers * tgt_hidden_dim)
         self.loss = nn.CrossEntropyLoss(ignore_index=0)  #ignore padding
         self.afunc = AFunc(tgt_hidden_dim, n_layers)

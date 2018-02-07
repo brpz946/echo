@@ -7,7 +7,7 @@ import torch.nn.functional as F
 
 import lang
 import data_proc as dp
-
+import logging
 
 def fill_missing_embeddings(seqs, missing_vecs, missing_dict, dimension):
     out = Variable(torch.zeros(seqs.shape[0], seqs.shape[1], dimension))
@@ -28,6 +28,7 @@ class RNN(nn.Module):
             -n_layers: number of layers in recurrent neural net.  See Graves (2014)
            -bidirectional: whether to use a bidirectional RNN 
            -extra_input_dim: The dimension of the extra input vectors, which are received as an additional piece of input and concatenated to the word embeddings.   
+           -dropout: 
         inputs:
             -batch: a translation batch of input data 
             -code: initial hidden units.  If this RNN is a decoder, these are the hidden units  from the last layer of the encoder.  Should be 3d with dimensions n_layers by batch_size by hidden_dim
@@ -44,7 +45,8 @@ class RNN(nn.Module):
                  n_layers=1,
                  bidirectional=False,
                  pretrained_embedding=None,
-                 extra_input_dim=0, pack=True):
+                 extra_input_dim=0, pack=True,dropout=0):
+        logging.info("Creating an RNN with dropout of"+ str(dropout))
         super(RNN, self).__init__()
         self.n_layers = n_layers
         self.hidden_dim = hidden_dim
@@ -55,7 +57,7 @@ class RNN(nn.Module):
             hidden_size=hidden_dim,
             num_layers=n_layers,
             batch_first=True,
-            bidirectional=bidirectional)
+            bidirectional=bidirectional,dropout=dropout)
         self.n_directions = 2 if bidirectional else 1
         if pretrained_embedding is not None:
             self.pretrained = True
@@ -64,6 +66,7 @@ class RNN(nn.Module):
             self.missing_dict = pretrained_embedding.missing_dict
         else:
             self.pretrained = False
+        self.embed_dropout=nn.Dropout(p=dropout)
 
     def embed(self, seqs):
         embedded = self.embedding(seqs)
@@ -72,6 +75,7 @@ class RNN(nn.Module):
             dimension = self.embedding.weight.shape[1]
             embedded = embedded + fill_missing_embeddings(
                 seqs, self.missing, self.missing_dict, dimension)
+       # embedded=self.embed_dropout(embedded)
         return embedded
 
     def forward(self, batch, code=None, extra_input=None):

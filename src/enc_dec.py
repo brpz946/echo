@@ -41,7 +41,8 @@ class EncoderDecoderRNN(nn.Module):
                  n_layers=1,
                  bidirectional=False,
                  pre_src_embedding=None,
-                 pre_tgt_embedding=None):
+                 pre_tgt_embedding=None,
+                 dropout=0):
         super(EncoderDecoderRNN, self).__init__()
         self.out_vocab_size = tgt_vocab_size
         n_directions = 2 if bidirectional else 1
@@ -51,14 +52,14 @@ class EncoderDecoderRNN(nn.Module):
             hidden_dim,
             n_layers,
             bidirectional=bidirectional,
-            pretrained_embedding=pre_src_embedding)
+            pretrained_embedding=pre_src_embedding,dropout=dropout)
         self.decoder = basic_rnn.RNN(
             tgt_vocab_size,
             tgt_embedding_dim,
             hidden_dim,
             n_directions * n_layers,
             bidirectional=False,
-            pretrained_embedding=pre_tgt_embedding)
+            pretrained_embedding=pre_tgt_embedding,dropout=dropout)
         self.lin = torch.nn.Linear(hidden_dim, tgt_vocab_size, bias=False)
         self.loss = nn.CrossEntropyLoss(ignore_index=0)  #ignore padding
 

@@ -47,7 +47,7 @@ class Manager():
                         l1_name="l1",
                         l2_name="l2",
                         testphrase="By the gods!",
-                        loglevel=logging.INFO,
+                        loglevel=logging.DEBUG,
                         filt=None,
                         opt='sgd',
                         pretrained=False,
@@ -56,7 +56,8 @@ class Manager():
                         model_constructor=ed.EncoderDecoderRNN.construct,
                         validate=False,
                         record_path=None,
-                        model_path=None):
+                        model_path=None,
+                        dropout=0.2):
         logging.getLogger().setLevel(loglevel)
         l1, l2, spairs = lang.read_langsv1(l1_name, l2_name, path, filt)
         lang.index_words_from_pairs(l1, l2, spairs)
@@ -68,7 +69,7 @@ class Manager():
             tgt_vocab_size=l2.n_words,
             src_embedding_dim=in_dim,
             tgt_embedding_dim=out_dim,
-            hidden_dim=hidden_dim)
+            hidden_dim=hidden_dim,dropout=dropout)
         if cuda:
             model = model.cuda()
          
