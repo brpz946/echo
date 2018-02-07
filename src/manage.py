@@ -57,7 +57,8 @@ class Manager():
                         validate=False,
                         record_path=None,
                         model_path=None,
-                        dropout=0.2):
+                        dropout=0.2,
+                        n_layers=1):
         logging.getLogger().setLevel(loglevel)
         l1, l2, spairs = lang.read_langsv1(l1_name, l2_name, path, filt)
         lang.index_words_from_pairs(l1, l2, spairs)
@@ -69,7 +70,7 @@ class Manager():
             tgt_vocab_size=l2.n_words,
             src_embedding_dim=in_dim,
             tgt_embedding_dim=out_dim,
-            hidden_dim=hidden_dim,dropout=dropout)
+            hidden_dim=hidden_dim,dropout=dropout,n_layers=n_layers)
         if cuda:
             model = model.cuda()
          
