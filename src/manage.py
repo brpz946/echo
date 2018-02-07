@@ -22,10 +22,10 @@ class Manager():
         self.trainer = trainer
 
     def save(self, path):
-        torch.save(l1, path + "_l1")
-        torch.save(l2, path + "_l2")
-        torch.save(model, path + "_model")
-        torch.save(trainer, path + "_trainer")
+        torch.save(self.l1, path + "_l1")
+        torch.save(self.l2, path + "_l2")
+        torch.save(selfmodel, path + "_model")
+        torch.save(self.trainer, path + "_trainer")
 
     @staticmethod
     def load(path):

@@ -67,7 +67,7 @@ class SearchRNN(nn.Module):
 
     def advance(self,num_continuing,cur_tgt_hidden_layer,src_hidden_seq,Uh,cur_tgt,padding_knockout=None,old_c_batch=None):
         #import pdb; pdb.set_trace()
-        hidden_out, cur_tgt_hidden_layer = self.decoder (cur_tgt,cur_tgt_hidden_layer[:num_continuing, :, :].transpose(0, 1),extra_input=old_c_batch[:num_continuing,:])
+        hidden_out, cur_tgt_hidden_layer = self.decoder (cur_tgt,cur_tgt_hidden_layer[:num_continuing, :, :].transpose(0, 1).contiguous(),extra_input=old_c_batch[:num_continuing,:].contiguous())
 
         cur_tgt_hidden_layer = cur_tgt_hidden_layer.transpose(0, 1)
         # Need to mess around with tranposes to use Afunc.  I keep batchfirst since afunc needs to use a view to combine the n_layers and tgt_hidden_dim dimensions
