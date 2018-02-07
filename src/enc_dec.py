@@ -162,9 +162,7 @@ class EncoderDecoderRNN(nn.Module):
         else:
             width = cur_state[0].shape[0]
             hidden = cur_state[0]  #need to reoganize cur_state so we can feed it into the decoder
-            hidden = hidden.view(
-                width, self.decoder.n_layers * self.decoder.n_directions,
-                self.decoder.hidden_dim)
+            hidden = hidden.view(width, self.decoder.n_layers * self.decoder.n_directions,self.decoder.hidden_dim)
             hidden = hidden.transpose(0, 1)
         embedded = self.decoder.embed(index.view(-1, 1))
         out, hidden = self.decoder.gru(embedded, hidden)

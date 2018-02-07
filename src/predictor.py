@@ -72,9 +72,7 @@ class BeamPredictor:
         if self.cuda:
             incoming_index = incoming_index.cuda()
             logprobs = logprobs.cuda()
-            for state in cur_state:
-                state= state.cuda()
-
+            cur_state=[ state.cuda() for state in cur_state  ]
 
         best_terminated = util.FixedHeap(k)
         cur_depth = 1

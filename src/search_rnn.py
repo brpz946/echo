@@ -127,7 +127,7 @@ class SearchRNN(nn.Module):
             (batch.tgt.seqs[:, 1:],
              Variable(batch.tgt.seqs.data.new(batchsize, 1).zero_())),
             1)  #prediction is staggered.  at sequence element t we predict t+1
-        return self.loss(out.view(-1, self.tgt_vocab_size +2*self.src_hidden_dim), goal.view(-1))
+        return self.loss(out.view(-1, self.tgt_vocab_size ), goal.view(-1))
 
     def predict(self, in_seq):
         '''
