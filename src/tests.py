@@ -747,12 +747,12 @@ if __name__ == '__main__':
     fast.addTest(lang_test_suite)
     fast.addTest(lang_util_test_suite)
     
-    # logging.getLogger().setLevel(logging.WARNING)
-    # unittest.TextTestRunner().run(fast)
-    # unittest.TextTestRunner().run(enc)
-    # unittest.TextTestRunner().run(dptest)
-    # unittest.TextTestRunner().run(pred)
-    # unittest.TextTestRunner().run(mantests)
+    logging.getLogger().setLevel(logging.WARNING)
+    unittest.TextTestRunner().run(fast)
+    unittest.TextTestRunner().run(enc)
+    unittest.TextTestRunner().run(dptest)
+    unittest.TextTestRunner().run(pred)
+    unittest.TextTestRunner().run(mantests)
     # unittest.TextTestRunner().run(trtest)  #slow
     # unittest.TextTestRunner().run(bitests)  #slow
     # unittest.TextTestRunner().run(multitests)  #slow
@@ -761,8 +761,8 @@ if __name__ == '__main__':
     # unittest.TextTestRunner().run(bp2) #slow
     # unittest.TextTestRunner().run(schtests)
     # # unittest.TextTestRunner().run(schslowtests) #slow
-    # unittest.TextTestRunner().run(schmore)
-    # unittest.TextTestRunner().run(beam)
-    # unittest.TextTestRunner().run(bleuval)
-    # unittest.TextTestRunner().run(bp)
-    unittest.TextTestRunner().run(serial)
+    unittest.TextTestRunner().run(schmore)
+    unittest.TextTestRunner().run(beam)
+    unittest.TextTestRunner().run(bleuval)
+    unittest.TextTestRunner().run(bp)
+    unittest.TextTestRunner().run(serial) #slow

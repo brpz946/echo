@@ -70,6 +70,7 @@ class SearchRNN(nn.Module):
         self.lin_out = nn.Linear(tgt_hidden_dim+2*src_hidden_dim, tgt_vocab_size)
         self.lin_combine=nn.Linear(2*src_hidden_dim+tgt_hidden_dim,2*src_hidden_dim+tgt_hidden_dim)
 
+
     def advance(self,num_continuing,cur_tgt_hidden_layer,src_hidden_seq,Uh,cur_tgt,padding_knockout=None,old_c_batch=None):
         #import pdb; pdb.set_trace()
         hidden_out, cur_tgt_hidden_layer = self.decoder (cur_tgt,cur_tgt_hidden_layer[:num_continuing, :, :].transpose(0, 1).contiguous(),extra_input=old_c_batch[:num_continuing,:].contiguous())

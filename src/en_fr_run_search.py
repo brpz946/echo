@@ -10,20 +10,23 @@ model_path= "../run_logs/best_model_"+strftime("%Y-%m-%dt-%H-%M-%S",ltime)
 full_model_path="../run_logs/full_model"+strftime("%Y-%m-%dt-%H-%M-%S",ltime)
 
 
-man = manage.Manager.basic_search_from_file(
-    path="../data/eng-fra_tut/eng-fra.txt",
-    report_interval=1000,
-    l1_name="eng",
-    l2_name="fr",
-    loglevel=logging.DEBUG,
-    batchsize=32,
-    testphrase="They are great.",
-    cuda=cuda,
-    hidden_dim=128,
-    n_layers=2,
-    filt=lang.filter_pair_tut,
-    opt='rmsprop',validate=True,
-    record_path=record_path,
-    model_path=model_path,dropout=0.2)
+mconfig =manage.ManagerConfig() 
+mconfig.path="../data/eng-fra_tut/eng-fra.txt"
+mconfig.report_interval=1000
+mconfig.l1_name="eng"
+mconfig.l2_name="fr"
+mconfig.loglevel=logging.DEBUG
+mconfig.batchsize=32
+mconfig.testphrase="They are great."
+mconfig.cuda=cuda
+mconfig.hidden_dim=128
+mconfig.n_layers=2
+mconfig.filt=lang.filter_pair_tut
+mconfig.opt='rmsprop'
+mconfig.validate=True
+mconfig.record_path=record_path
+mconfig.model_path=model_path
+mconfig.dropout=0.2
+man=manage.Manager.basic_from_file(mconfig)
 man.trainer.train(70000)
 man.save(full_model_path)
