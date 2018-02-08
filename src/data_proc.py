@@ -20,8 +20,13 @@ class TranslationBatch:
         self.seqs = seqs
         self.lengths = lengths
 
+    
+
     def cuda(self):
         return TranslationBatch(self.seqs.cuda(), self.lengths)
+
+        
+
 
     @staticmethod
     def from_list(lseqs):

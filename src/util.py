@@ -1,5 +1,7 @@
 import heapq
 import torch
+import torch.nn as nn
+import pickle
 
 import lang
 
@@ -49,6 +51,16 @@ class FixedHeap:
             scores.append(entry[0])
         return items, scores
 
+def remove_right_zeros(lst):
+    newlst=[]
+    index=0
+    while True:
+        if lst[index]==0  or index== len(lst):
+            break
+        newlst.append(list[i])
+        index+=1
+    return newlst
+
 def remove_sos_eos2(sentences):
     ''' 
         Args:
@@ -72,5 +84,13 @@ def remove_sos_eos3(sentences):
     for row in sentences:
         out.append( remove_sos_eos2(row) )
     return out
+
+def save_obj(path, name ):
+    with open(path, 'wb') as f:
+        pickle.dump(obj, f, pickle.HIGHEST_PROTOCOL)
+
+def load_obj(path ):
+    with open(path, 'rb') as f:
+        return pickle.load(f)
 
 

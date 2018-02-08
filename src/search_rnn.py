@@ -9,6 +9,7 @@ import basic_rnn as basic
 import data_proc as dp
 import lang
 import predictor
+import batchpredictor 
 
 MAX_PREDICTION_LENGTH = 30
 
@@ -38,9 +39,13 @@ class SearchRNN(nn.Module):
                  pre_tgt_embedding=None,dropout=0):
         logging.info("Creating SearchRNN with dropout of "+str(dropout))
         super(SearchRNN, self).__init__()
+
+        
         self.tgt_hidden_dim = tgt_hidden_dim
         self.src_hidden_dim = src_hidden_dim
         self.tgt_vocab_size = tgt_vocab_size
+        
+        
         self.encoder = basic.RNN(
             vocab_size=src_vocab_size,
             embedding_dim=src_embedding_dim,
@@ -145,6 +150,7 @@ class SearchRNN(nn.Module):
         '''
             Old greedy prediction function. kept around for to test new prediction functions against`
         '''
+       # import pdb; pdb.set_trace()
         batchsize=1
         cuda = next(self.parameters()).is_cuda
         in_seq_len = [len(in_seq)]
@@ -169,17 +175,30 @@ class SearchRNN(nn.Module):
            cur_tgt=dp.TranslationBatch(index,[1])
            hidden_out, cur_tgt_hidden_layer,old_c_batch  =  self.advance(num_continuing=1, cur_tgt_hidden_layer= cur_tgt_hidden_layer, src_hidden_seq=src_hidden_seq,cur_tgt=cur_tgt  ,Uh=Uh, padding_knockout=None,old_c_batch=old_c_batch )
            weights=self.lin_out(hidden_out).squeeze()#dimension vocab_size 
-           #import pdb; pdb.set_trace()
            _, index = torch.topk(weights, k=1)
            indexes.append(index.data[0])
            if index.data[0] == lang.EOS_TOKEN:
                 break
            index = index.view(1, 1)
            iter = iter + 1
-           if iter >= MAX_PREDICTION_LENGTH-1:
+           if len(indexes)>= MAX_PREDICTION_LENGTH-1:
                 indexes.append(lang.EOS_TOKEN)
                 break
         return indexes
+
+
+
+    def process_src_primary_version(self,in_seq):
+        '''
+        expects in_seq to be a TranslationBatch
+        '''
+        src_hidden_seq, _ = self.encoder(in_seq)
+        src_hidden_seq, _ = rnn.pad_packed_sequence(src_hidden_seq,
+            batch_first=True)  #dimensions batch, 1,  2*src_hidden_dim
+        Uh = self.U(src_hidden_seq)  #dimensions 1, n_layers* tgt_hidden_dim
+
+        src_state = [src_hidden_seq, Uh]
+        return src_state
 
 
 
@@ -192,27 +211,33 @@ class SearchRNN(nn.Module):
         if cuda:
             in_seq = in_seq.cuda()
 
-        src_hidden_seq, _ = self.encoder(in_seq)
-        src_hidden_seq, _ = rnn.pad_packed_sequence(
-            src_hidden_seq,
-            batch_first=True)  #dimensions batch, 1,  2*src_hidden_dim
-        Uh = self.U(src_hidden_seq)  #dimensions 1, n_layers* tgt_hidden_dim
+        return self.process_src_primary_version(in_seq)
 
-        src_state = [src_hidden_seq, Uh]
-        return src_state
+    def process_src_batch_version(self,src_seqs,src_lengths):
+        '''
+            Intended for use with BatchPredictor in the predictor module.  src_seqs is a variable.  its rows should be sorted by length
+        '''
+        assert(src_lengths[0]==max(src_lengths)  )
+        cuda = next(self.parameters()).is_cuda
+        in_seq = dp.TranslationBatch(src_seqs, src_lengths)
+        if cuda:
+            in_seq = in_seq.cuda()
+        return self.process_src_primary_version(in_seq)
+
+
 
     def advance_tgt(self, src_state, first, cur_state, index):
         '''
-        For use by the BathchPredictor function in the predictor module.
+        For use by the BatchPredictor function in the predictor module.
         '''
-        src_hidden_seq = src_state[0]
-        Uh = src_state[1]
+        width = cur_state[0].shape[0]  
+        src_hidden_seq = src_state[0].view(width,-1  ,self.src_hidden_dim*2) # dimensions num comintinuinge by src_max sequence length by src_hidden_dim*2   
+        Uh = src_state[1].view(width,-1,self.encoder.n_layers*self.tgt_hidden_dim) #has dimension num_continung by src_max_seq_length by n_layers*tgt_hidden_dim
+
         if first:
-            width = 1
             cur_tgt_hidden_layer = Variable(src_hidden_seq.data.new(1, self.decoder.n_layers,self.decoder.hidden_dim).zero_())
             old_c_batch= Variable(src_hidden_seq.data.new(width, 1,2*self.src_hidden_dim ).zero_())
         else:
-            width = cur_state[0].shape[0]
             cur_tgt_hidden_layer = cur_state[0].view(width, self.decoder.n_layers, self.decoder.hidden_dim)  #no need to transpose cur_gt_hidden layer: advance does that.
             old_c_batch=cur_state[1].view(width,1,2*self.src_hidden_dim)
         cur_tgt = dp.TranslationBatch(index.view(-1, 1),torch.ones(index.shape[0]).long().tolist())
@@ -233,7 +258,9 @@ class SearchRNN(nn.Module):
             tgt_vocab_size=self.tgt_vocab_size,
             max_seq_len=30,
             cuda=cuda)
-
+    def batch_predictor(self):
+        cuda = next(self.parameters()).is_cuda
+        return batchpredictor.BatchPredictor(self.process_src_batch_version, self.advance_tgt,rlist=[self.decoder.n_layers  *self.decoder.hidden_dim,2*self.src_hidden_dim],max_seq_len=30,tgt_vocab_size=self.tgt_vocab_size,cuda=cuda )
 
 class AFunc(nn.Module):
     '''

@@ -38,6 +38,7 @@ class RNN(nn.Module):
             -final hidden units of each layer  (main output of encoder RNNs). Has dimensions (num_layers * num_directions, batch, hidden_size)
     '''
 
+
     def __init__(self,
                  vocab_size,
                  embedding_dim,
@@ -46,11 +47,12 @@ class RNN(nn.Module):
                  bidirectional=False,
                  pretrained_embedding=None,
                  extra_input_dim=0, pack=True,dropout=0):
-        logging.info("Creating an RNN with dropout of"+ str(dropout))
         super(RNN, self).__init__()
+
         self.n_layers = n_layers
         self.hidden_dim = hidden_dim
         self.extra_input_dim = extra_input_dim
+ 
         self.embedding = nn.Embedding(vocab_size, embedding_dim)
         self.gru = nn.GRU(
             input_size=embedding_dim + extra_input_dim,
@@ -59,6 +61,7 @@ class RNN(nn.Module):
             batch_first=True,
             bidirectional=bidirectional,dropout=dropout)
         self.n_directions = 2 if bidirectional else 1
+        
         if pretrained_embedding is not None:
             self.pretrained = True
             self.embedding.weights = pretrained_embedding.weights
@@ -66,6 +69,7 @@ class RNN(nn.Module):
             self.missing_dict = pretrained_embedding.missing_dict
         else:
             self.pretrained = False
+        
         self.embed_dropout=nn.Dropout(p=dropout)
 
     def embed(self, seqs):
@@ -91,4 +95,5 @@ class RNN(nn.Module):
         else:
             hidden_seq, final_hidden = self.gru(packed)
         #hidden_seq is packed sequence.  when unpacked has dimension batch_size by (max) seq_length by hidden_dim*num_directions
+        final_hidden=final_hidden.view(self.n_layers*self.n_directions,-1,self.hidden_dim)
         return hidden_seq, final_hidden

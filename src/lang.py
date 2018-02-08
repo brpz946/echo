@@ -52,6 +52,9 @@ class Lang:
         return str.strip()
 
     def sentence2dex(self, sentence):
+        '''
+        returns an index representation of the word, including SOS and EOS tokens
+        '''
         dexes = [
             self.word2index[w] for w in normalize_string(sentence).split(' ')
         ]
